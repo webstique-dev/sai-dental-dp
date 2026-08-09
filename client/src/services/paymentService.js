@@ -9,10 +9,6 @@ export async function listPayments(params = {}) {
   return api.get(`/payments${s ? `?${s}` : ''}`)
 }
 
-export async function getPayment(id) {
-  return api.get(`/payments/${id}`)
-}
-
 export async function getPaymentReceipt(id) {
   return api.get(`/payments/${id}/receipt`)
 }

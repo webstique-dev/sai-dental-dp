@@ -12,7 +12,7 @@ const fmtDateTime = (d) => {
 }
 
 export default function PaymentsPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const fromPatient = params.get('patient')
 
   const [patient, setPatient] = useState(null)
@@ -82,7 +82,7 @@ export default function PaymentsPage() {
     setPatient(p)
     setPatients([])
     setSearch('')
-    window.history.replaceState(null, '', `/portal/payments?patient=${p._id || p.id}`)
+    setParams({ patient: p._id || p.id })
   }
 
   const patientId = fromPatient || (patient && (patient._id || patient.id))
@@ -109,6 +109,7 @@ export default function PaymentsPage() {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}

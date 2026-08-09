@@ -398,6 +398,9 @@ async function update(id, payload, actor) {
     if (payload.discountValue !== undefined) {
       const dv = Number(payload.discountValue) || 0;
       if (dv < 0) throw new ApiError(400, 'Discount cannot be negative.');
+      if (payload.discountType === 'percent' && dv > 100) {
+        throw new ApiError(400, 'Percentage discount cannot exceed 100.');
+      }
       doc.discountValue = dv;
     }
     if (payload.taxPercent !== undefined) {

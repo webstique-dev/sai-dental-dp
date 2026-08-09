@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import AuthProvider from './context/AuthContext'
 import RootLayout from './layouts/RootLayout'
 import HomePage from './pages/public/HomePage'
@@ -14,23 +15,32 @@ import ProtectedRoute from './components/ProtectedRoute'
 import PortalLayout from './layouts/PortalLayout'
 import DashboardPage from './pages/portal/DashboardPage'
 import ModulePlaceholder from './pages/portal/ModulePlaceholder'
-import ConsultationsPage from './pages/portal/ConsultationsPage'
-import ConsultationEditorPage from './pages/portal/ConsultationEditorPage'
-import ToothChartPage from './pages/portal/ToothChartPage'
-import DiagnosesPage from './pages/portal/DiagnosesPage'
-import TreatmentPlansPage from './pages/portal/TreatmentPlansPage'
-import PrescriptionsPage from './pages/portal/PrescriptionsPage'
-import InvestigationsPage from './pages/portal/InvestigationsPage'
-import TreatmentRecordsPage from './pages/portal/TreatmentRecordsPage'
-import FollowUpsPage from './pages/portal/FollowUpsPage'
-import PrescriptionPrintPage from './pages/portal/PrescriptionPrintPage'
-import BillingPage from './pages/portal/BillingPage'
-import PaymentsPage from './pages/portal/PaymentsPage'
-import ServicesPage from './pages/portal/ServicesPage'
-import InvoicePrintPage from './pages/portal/InvoicePrintPage'
-import ReceiptPrintPage from './pages/portal/ReceiptPrintPage'
-import PharmacyPage from './pages/portal/PharmacyPage'
-import InventoryPage from './pages/portal/InventoryPage'
+
+const ConsultationsPage = lazy(() => import('./pages/portal/ConsultationsPage'))
+const ConsultationEditorPage = lazy(() => import('./pages/portal/ConsultationEditorPage'))
+const ToothChartPage = lazy(() => import('./pages/portal/ToothChartPage'))
+const DiagnosesPage = lazy(() => import('./pages/portal/DiagnosesPage'))
+const TreatmentPlansPage = lazy(() => import('./pages/portal/TreatmentPlansPage'))
+const PrescriptionsPage = lazy(() => import('./pages/portal/PrescriptionsPage'))
+const InvestigationsPage = lazy(() => import('./pages/portal/InvestigationsPage'))
+const TreatmentRecordsPage = lazy(() => import('./pages/portal/TreatmentRecordsPage'))
+const FollowUpsPage = lazy(() => import('./pages/portal/FollowUpsPage'))
+const PrescriptionPrintPage = lazy(() => import('./pages/portal/PrescriptionPrintPage'))
+const BillingPage = lazy(() => import('./pages/portal/BillingPage'))
+const PaymentsPage = lazy(() => import('./pages/portal/PaymentsPage'))
+const ServicesPage = lazy(() => import('./pages/portal/ServicesPage'))
+const InvoicePrintPage = lazy(() => import('./pages/portal/InvoicePrintPage'))
+const ReceiptPrintPage = lazy(() => import('./pages/portal/ReceiptPrintPage'))
+const PharmacyPage = lazy(() => import('./pages/portal/PharmacyPage'))
+const InventoryPage = lazy(() => import('./pages/portal/InventoryPage'))
+
+function PageFallback() {
+  return (
+    <div className="page-fallback" role="status" aria-live="polite">
+      <span>Loading…</span>
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -56,7 +66,9 @@ export default function App() {
                 path="consultations"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin']}>
-                    <ConsultationsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <ConsultationsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -64,7 +76,9 @@ export default function App() {
                 path="consultations/:id"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin']}>
-                    <ConsultationEditorPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <ConsultationEditorPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -72,7 +86,9 @@ export default function App() {
                 path="tooth-chart"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin']}>
-                    <ToothChartPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <ToothChartPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -80,7 +96,9 @@ export default function App() {
                 path="diagnoses"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin']}>
-                    <DiagnosesPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <DiagnosesPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -88,7 +106,9 @@ export default function App() {
                 path="treatment-plans"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin']}>
-                    <TreatmentPlansPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <TreatmentPlansPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -96,7 +116,9 @@ export default function App() {
                 path="prescriptions"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin', 'pharmacy', 'receptionist']}>
-                    <PrescriptionsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <PrescriptionsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -104,7 +126,9 @@ export default function App() {
                 path="prescriptions/:id/print"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin', 'pharmacy', 'receptionist']}>
-                    <PrescriptionPrintPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <PrescriptionPrintPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -112,7 +136,9 @@ export default function App() {
                 path="investigations"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
-                    <InvestigationsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <InvestigationsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -120,7 +146,9 @@ export default function App() {
                 path="treatment-records"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
-                    <TreatmentRecordsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <TreatmentRecordsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -128,7 +156,9 @@ export default function App() {
                 path="follow-ups"
                 element={
                   <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
-                    <FollowUpsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <FollowUpsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -136,7 +166,9 @@ export default function App() {
                 path="billing"
                 element={
                   <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
-                    <BillingPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <BillingPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -144,7 +176,9 @@ export default function App() {
                 path="billing/:id/print"
                 element={
                   <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
-                    <InvoicePrintPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <InvoicePrintPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -152,7 +186,9 @@ export default function App() {
                 path="payments"
                 element={
                   <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
-                    <PaymentsPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <PaymentsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -160,7 +196,9 @@ export default function App() {
                 path="payments/:id/receipt"
                 element={
                   <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
-                    <ReceiptPrintPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <ReceiptPrintPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -168,7 +206,9 @@ export default function App() {
                 path="services"
                 element={
                   <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
-                    <ServicesPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <ServicesPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -176,7 +216,9 @@ export default function App() {
                 path="pharmacy"
                 element={
                   <ProtectedRoute roles={['admin', 'pharmacy']}>
-                    <PharmacyPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <PharmacyPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -184,7 +226,9 @@ export default function App() {
                 path="inventory"
                 element={
                   <ProtectedRoute roles={['admin', 'pharmacy', 'doctor', 'receptionist']}>
-                    <InventoryPage />
+                    <Suspense fallback={<PageFallback />}>
+                      <InventoryPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />

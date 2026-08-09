@@ -2,10 +2,12 @@ import { useParams } from 'react-router-dom'
 
 const LABELS = {
   'check-in': 'Check-in',
-  'tooth-chart': 'Tooth Chart',
-  'treatment-plans': 'Treatment Plans',
-  'follow-ups': 'Follow-ups',
   'audit-logs': 'Audit Logs',
+  appointments: 'Appointments',
+  patients: 'Patients',
+  users: 'Users',
+  roles: 'Roles & Permissions',
+  settings: 'Clinic Settings',
 }
 
 export default function ModulePlaceholder() {

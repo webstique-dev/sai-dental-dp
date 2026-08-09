@@ -1,6 +1,15 @@
 import { tokenStore } from '../utils/token'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+
+async function handleUnauthorized(path) {
+  if (path.startsWith('/auth/login') || path.startsWith('/auth/refresh')) return
+  tokenStore.clear()
+  if (window.location.pathname !== '/login') {
+    const current = window.location.pathname + window.location.search + window.location.hash
+    window.location.assign(`/login?redirect=${encodeURIComponent(current)}`)
+  }
+}
 
 async function request(path, options = {}) {
   const { headers = {}, body, ...rest } = options
@@ -32,6 +41,9 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
+    if (res.status === 401 && authToken) {
+      handleUnauthorized(path)
+    }
     const error = new Error(data?.message || `Request failed (${res.status})`)
     error.status = res.status
     error.data = data

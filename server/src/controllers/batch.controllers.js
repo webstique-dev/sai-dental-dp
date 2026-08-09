@@ -36,15 +36,15 @@ const adjust = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Stock adjustment recorded successfully.', batch });
 });
 
-// Medicine-scoped batch listing: GET /api/medicines/:id/batches
+// Medicine-scoped batch listing: GET /api/medicines/:medicineId/batches
 const listForMedicine = asyncHandler(async (req, res) => {
-  const batches = await inventory.listBatches({ medicineId: req.params.id, includeInactive: true });
+  const batches = await inventory.listBatches({ medicineId: req.params.medicineId, includeInactive: true });
   res.status(200).json({ success: true, batches });
 });
 
 const movements = asyncHandler(async (req, res) => {
   const transactions = await inventory.listMovements({
-    medicineId: req.params.id,
+    medicineId: req.params.medicineId,
     limit: req.query.limit,
   });
   res.status(200).json({ success: true, transactions });

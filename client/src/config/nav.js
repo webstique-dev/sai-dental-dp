@@ -16,11 +16,11 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/portal/consultations', label: 'Consultations', roles: ['doctor', 'admin'] },
       { to: '/portal/tooth-chart', label: 'Tooth Chart', roles: ['admin', 'doctor'] },
-      { to: '/portal/diagnoses', label: 'Diagnoses', roles: ['doctor'] },
-      { to: '/portal/treatment-plans', label: 'Treatment Plans', roles: ['doctor'] },
+      { to: '/portal/diagnoses', label: 'Diagnoses', roles: ['doctor', 'admin'] },
+      { to: '/portal/treatment-plans', label: 'Treatment Plans', roles: ['doctor', 'admin'] },
       { to: '/portal/treatment-records', label: 'Treatment Records', roles: ['doctor', 'admin', 'receptionist'] },
-      { to: '/portal/prescriptions', label: 'Prescriptions', roles: ['doctor', 'pharmacy'] },
-      { to: '/portal/investigations', label: 'Investigations', roles: ['doctor'] },
+      { to: '/portal/prescriptions', label: 'Prescriptions', roles: ['doctor', 'admin', 'pharmacy', 'receptionist'] },
+      { to: '/portal/investigations', label: 'Investigations', roles: ['doctor', 'admin', 'receptionist'] },
     ],
   },
   {

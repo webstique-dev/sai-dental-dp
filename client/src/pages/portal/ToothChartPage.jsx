@@ -88,6 +88,7 @@ export default function ToothChartPage() {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}

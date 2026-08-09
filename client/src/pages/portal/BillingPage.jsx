@@ -539,7 +539,7 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
 }
 
 export default function BillingPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const fromPatient = params.get('patient')
 
   const [patient, setPatient] = useState(null)
@@ -638,7 +638,7 @@ try {
     setPatient(p)
     setPatients([])
     setSearch('')
-    window.history.replaceState(null, '', `/portal/billing?patient=${p._id || p.id}`)
+    setParams({ patient: p._id || p.id })
   }
 
   const patientId = fromPatient || (patient && (patient._id || patient.id))
@@ -704,6 +704,7 @@ try {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}

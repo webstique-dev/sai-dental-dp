@@ -13,7 +13,7 @@ const fmtDate = (d) => {
 
 export default function TreatmentPlansPage() {
   const { user } = useAuth()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const fromPatient = params.get('patient')
   const canEdit = user.role === 'doctor' || user.role === 'admin'
 
@@ -84,7 +84,7 @@ export default function TreatmentPlansPage() {
     setPatient(p)
     setPatients([])
     setSearch('')
-    window.history.replaceState(null, '', `/portal/treatment-plans?patient=${p._id || p.id}`)
+    setParams({ patient: p._id || p.id })
   }
 
   const patientId = fromPatient || (patient && (patient._id || patient.id))
@@ -109,6 +109,7 @@ export default function TreatmentPlansPage() {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}

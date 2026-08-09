@@ -1,14 +1,5 @@
 import { api } from './api'
 
-export async function listInvoices(params = {}) {
-  const qs = new URLSearchParams()
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '') qs.set(k, v)
-  })
-  const s = qs.toString()
-  return api.get(`/invoices${s ? `?${s}` : ''}`)
-}
-
 export async function getInvoice(id) {
   return api.get(`/invoices/${id}`)
 }

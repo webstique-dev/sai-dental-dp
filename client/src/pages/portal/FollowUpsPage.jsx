@@ -15,6 +15,7 @@ import {
   cancelFollowUp,
 } from '../../services/followUpService'
 import { listPatients, getPatient } from '../../services/patientService'
+import useAuth from '../../hooks/useAuth'
 
 const fmtDate = (d) => {
   if (!d) return '—'
@@ -22,8 +23,10 @@ const fmtDate = (d) => {
 }
 
 export default function FollowUpsPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const fromPatient = params.get('patient')
+  const { user } = useAuth()
+  const isReceptionist = user?.role === 'receptionist'
 
   const [patient, setPatient] = useState(null)
   const [search, setSearch] = useState('')
@@ -124,13 +127,13 @@ export default function FollowUpsPage() {
     setPatient(p)
     setPatients([])
     setSearch('')
-    window.history.replaceState(null, '', `/portal/follow-ups?patient=${p._id || p.id}`)
+    setParams({ patient: p._id || p.id })
   }
 
   const selectPatientFromFU = (fu) => {
     const pid = fu.patient?._id || fu.patient?.id
     if (!pid) return
-    window.history.replaceState(null, '', `/portal/follow-ups?patient=${pid}`)
+    setParams({ patient: pid })
   }
 
   const patientId = fromPatient || (patient && (patient._id || patient.id))
@@ -164,7 +167,7 @@ export default function FollowUpsPage() {
 
   const reloadPatientList = async () => {
     try {
-      const res = await patientFollowUps(fromPatient)
+      const res = await patientFollowUps(patientId)
       setFollowUps(res.followUps || [])
     } catch (err) {
       setError(err.message || 'Unable to refresh patient follow-ups.')
@@ -247,6 +250,7 @@ export default function FollowUpsPage() {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}
@@ -286,7 +290,7 @@ export default function FollowUpsPage() {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={() => window.history.replaceState(null, '', '/portal/follow-ups')}
+              onClick={() => setParams({})}
             >
               Back
             </button>
@@ -377,7 +381,7 @@ export default function FollowUpsPage() {
                       {fu.completedBy?.name ? ` by ${fu.completedBy.name}` : ''}
                     </p>
                   )}
-                  {isOpen && fu.status !== 'scheduled' && (
+                  {isOpen(fu.status) && fu.status !== 'scheduled' && (
                     <div className="form-actions">
                       <button
                         type="button"
@@ -400,7 +404,7 @@ export default function FollowUpsPage() {
                       </button>
                     </div>
                   )}
-                  {isOpen && (
+                  {!isReceptionist && isOpen(fu.status) && (
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"

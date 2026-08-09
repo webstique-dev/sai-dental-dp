@@ -1,12 +1,11 @@
 const asyncHandler = require('../utils/asyncHandler');
 const dispensingService = require('../services/dispensing.service');
+const ApiError = require('../utils/ApiError');
 
 const create = asyncHandler(async (req, res) => {
   const { prescriptionId, ...payload } = req.body;
   if (!prescriptionId) {
-    const err = new Error('prescriptionId is required.');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'prescriptionId is required.');
   }
   const result = await dispensingService.create(prescriptionId, payload, req.user);
   res.status(201).json({

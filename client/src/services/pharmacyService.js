@@ -1,11 +1,12 @@
 import { api } from './api'
 
 export async function listMedicines(params = {}) {
-  return api.get('/medicines', { params })
-}
-
-export async function getMedicine(id) {
-  return api.get(`/medicines/${id}`)
+  const qs = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, v)
+  })
+  const s = qs.toString()
+  return api.get(`/medicines${s ? `?${s}` : ''}`)
 }
 
 export async function createMedicine(payload) {

@@ -222,7 +222,7 @@ export default function ToothDetailPanel({
 
   return (
     <div className="tooth-modal-backdrop" onMouseDown={onClose}>
-      <div className="tooth-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="tooth-modal" role="dialog" aria-modal="true" aria-label="Tooth details" onMouseDown={(e) => e.stopPropagation()}>
         <div className="tooth-modal-head">
           <div>
             <div className="tooth-modal-title">Tooth {toothNumber}</div>
@@ -232,7 +232,7 @@ export default function ToothDetailPanel({
               </div>
             )}
           </div>
-          <button type="button" className="link-back" onClick={onClose}>
+          <button type="button" className="link-back" onClick={onClose} aria-label="Close tooth details">
             Close
           </button>
         </div>

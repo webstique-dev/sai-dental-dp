@@ -15,7 +15,7 @@ const fmtDate = (d) => {
 }
 
 export default function InvestigationsPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const fromPatient = params.get('patient')
 
   const [patient, setPatient] = useState(null)
@@ -85,7 +85,7 @@ export default function InvestigationsPage() {
     setPatient(p)
     setPatients([])
     setSearch('')
-    window.history.replaceState(null, '', `/portal/investigations?patient=${p._id || p.id}`)
+    setParams({ patient: p._id || p.id })
   }
 
   const patientId = fromPatient || (patient && (patient._id || patient.id))
@@ -110,6 +110,7 @@ export default function InvestigationsPage() {
             <input
               className="search-input"
               type="search"
+              aria-label="Search patients"
               value={search}
               placeholder="Search by name, patient ID or phone…"
               onChange={(e) => setSearch(e.target.value)}

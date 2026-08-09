@@ -56,14 +56,16 @@ async function createForInvoice(invoiceId, payload, actor) {
     throw new ApiError(400, 'Payment amount must be greater than zero.');
   }
 
-  const [paidAgg] = await Payment.aggregate([
-    { $match: { invoice: invoice._id, type: 'payment', isArchived: false } },
-    { $group: { _id: null, total: { $sum: '$amountPaise' } } },
-  ]);
-  const paidSoFar = (paidAgg && paidAgg.total) || 0;
-
-  if (paidSoFar + amountPaise > invoice.totalPaise) {
-    throw new ApiError(400, `Payment exceeds the outstanding balance of ₹${toRupees(invoice.totalPaise - paidSoFar)}.`);
+  // Atomic reservation: reduce the balance only if enough remains. This closes
+  // the check-then-write race where two concurrent payments could both pass the
+  // aggregate balance check and over-pay the invoice.
+  const reserved = await Invoice.findOneAndUpdate(
+    { _id: invoice._id, status: 'finalized', balancePaise: { $gte: amountPaise } },
+    { $inc: { balancePaise: -amountPaise, amountPaidPaise: amountPaise } },
+    { new: true }
+  );
+  if (!reserved) {
+    throw new ApiError(400, `Payment exceeds the outstanding balance of ₹${toRupees(invoice.balancePaise)}.`);
   }
 
   const doc = await Payment.create({
@@ -80,10 +82,9 @@ async function createForInvoice(invoiceId, payload, actor) {
     receivedBy: actor._id,
   });
 
-  const newPaid = paidSoFar + amountPaise;
-  invoice.amountPaidPaise = Math.min(invoice.totalPaise, newPaid);
-  invoice.balancePaise = Math.max(0, invoice.totalPaise - newPaid);
-  invoice.paymentStatus = invoice.balancePaise === 0 ? 'paid' : 'partially-paid';
+  invoice.amountPaidPaise = reserved.amountPaidPaise;
+  invoice.balancePaise = reserved.balancePaise;
+  invoice.paymentStatus = reserved.balancePaise === 0 ? 'paid' : 'partially-paid';
   await invoice.save();
 
   await recordAudit({
@@ -111,14 +112,14 @@ async function createRefundForInvoice(invoiceId, payload, actor) {
     throw new ApiError(400, 'Refund amount must be greater than zero.');
   }
 
-  const [paymentAgg, refundAgg] = await Promise.all([
-    Payment.aggregate([{ $match: { invoice: invoice._id, type: 'payment', isArchived: false } }, { $group: { _id: null, total: { $sum: '$amountPaise' } } }]),
-    Payment.aggregate([{ $match: { invoice: invoice._id, type: 'refund', isArchived: false } }, { $group: { _id: null, total: { $sum: '$amountPaise' } } }]),
-  ]);
-  const paid = (paymentAgg[0] && paymentAgg[0].total) || 0;
-  const refunded = (refundAgg[0] && refundAgg[0].total) || 0;
-
-  if (refunded + amountPaise > paid) {
+  // Atomic reservation: net amount received (amountPaidPaise tracks payments net
+  // of refunds) can never go negative, closing the concurrent refund race.
+  const reserved = await Invoice.findOneAndUpdate(
+    { _id: invoice._id, status: 'finalized', amountPaidPaise: { $gte: amountPaise } },
+    { $inc: { amountPaidPaise: -amountPaise, balancePaise: amountPaise } },
+    { new: true }
+  );
+  if (!reserved) {
     throw new ApiError(400, 'Refund amount exceeds the total amount received on this invoice.');
   }
 
@@ -136,10 +137,9 @@ async function createRefundForInvoice(invoiceId, payload, actor) {
     receivedBy: actor._id,
   });
 
-  const netPaid = paid - (refunded + amountPaise);
-  invoice.amountPaidPaise = Math.max(0, netPaid);
-  invoice.balancePaise = Math.max(0, invoice.totalPaise - netPaid);
-  invoice.paymentStatus = netPaid <= 0 ? 'refunded' : invoice.balancePaise === 0 ? 'paid' : 'partially-paid';
+  invoice.amountPaidPaise = reserved.amountPaidPaise;
+  invoice.balancePaise = reserved.balancePaise;
+  invoice.paymentStatus = reserved.amountPaidPaise <= 0 ? 'refunded' : reserved.balancePaise === 0 ? 'paid' : 'partially-paid';
   await invoice.save();
 
   await recordAudit({

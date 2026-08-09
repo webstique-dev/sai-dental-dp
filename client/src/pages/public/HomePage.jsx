@@ -6,7 +6,7 @@ import { usePublicSiteData } from '../../hooks/usePublicSiteData'
 import { CLINIC, TREATMENTS, TESTIMONIALS, WHY_CHOOSE_US } from '../../data/clinic'
 
 export default function HomePage() {
-  const { doctors, services } = usePublicSiteData()
+  const { doctors, services, loading, error } = usePublicSiteData()
   const [activeFaq, setActiveFaq] = useState(0)
 
   const featuredTreatments = TREATMENTS.slice(0, 6)
@@ -104,11 +104,17 @@ export default function HomePage() {
       {/* Doctors / team */}
       <section className="container pub-section">
         <SectionHeading eyebrow="Our team" title="Meet your dentists" lead="Experienced specialists who treat you like family." />
-        <div className="card-grid card-grid-3">
-          {(doctors.length ? doctors : [{ name: 'Dr. Meera Nair', specialization: 'General Dentistry' }]).map((d, i) => (
-            <DoctorCard key={d.id || `d-${i}`} doctor={d} />
-          ))}
-        </div>
+        {loading ? (
+          <p className="muted" role="status" aria-live="polite">Loading our doctors…</p>
+        ) : error ? (
+          <p className="muted" role="alert">{error}</p>
+        ) : (
+          <div className="card-grid card-grid-3">
+            {(doctors.length ? doctors : [{ name: 'Dr. Meera Nair', specialization: 'General Dentistry' }]).map((d, i) => (
+              <DoctorCard key={d.id || `d-${i}`} doctor={d} />
+            ))}
+          </div>
+        )}
         <div className="section-cta">
           <a href="/doctors" className="text-link">Meet the full team <Icon name="arrow" size={16} /></a>
         </div>
