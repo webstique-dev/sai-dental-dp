@@ -15,6 +15,13 @@ import {
   completeConsultation,
 } from '../../services/consultationService'
 import useAuth from '../../hooks/useAuth'
+import ToothChartModule from '../../components/tooth/ToothChartModule'
+import DiagnosisSection from '../../components/diagnosis/DiagnosisSection'
+import TreatmentPlanSection from '../../components/treatmentPlan/TreatmentPlanSection'
+import PrescriptionSection from '../../components/prescription/PrescriptionSection'
+import InvestigationSection from '../../components/investigation/InvestigationSection'
+import TreatmentExecutionSection from '../../components/treatment/TreatmentExecutionSection'
+import FollowUpSection from '../../components/followUp/FollowUpSection'
 
 const STATUS_LABELS = {  draft: 'Draft',
   'in-progress': 'In Progress',
@@ -522,8 +529,15 @@ export default function ConsultationEditorPage() {
       {/* Hard tissue */}
       <SectionCard
         title="Hard Tissue Examination"
-        description="Tooth-level findings attach here when the Tooth Chart module is added."
+        description="Digital tooth chart — select a tooth to view history and record findings or treatments."
       >
+        <ToothChartModule
+          patientId={consultation.patient?.id || consultation.patient?._id}
+          consultationId={consultation.id}
+          visitId={consultation.visit?.id || consultation.visit?._id}
+          readOnly={!canEdit}
+          compact
+        />
         <TextField
           label="Summary"
           textarea
@@ -547,6 +561,44 @@ export default function ConsultationEditorPage() {
           onChange={(e) => setAt('clinicalFindings')(e.target.value)}
         />
       </SectionCard>
+
+      {/* Diagnosis + Treatment Plan */}
+      <DiagnosisSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+      <TreatmentPlanSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+      <PrescriptionSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+      <InvestigationSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+      <TreatmentExecutionSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+      <FollowUpSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
 
       {/* Actions */}
       <div className="consult-actions">

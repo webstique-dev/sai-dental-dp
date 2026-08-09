@@ -10,6 +10,8 @@ const env = {
     process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
   JWT_ACCESS_EXPIRES: process.env.JWT_ACCESS_EXPIRES || '15m',
   JWT_REFRESH_EXPIRES: process.env.JWT_REFRESH_EXPIRES || '7d',
+  // How many days ahead a batch is flagged as "expiring soon".
+  EXPIRY_WARNING_DAYS: parseInt(process.env.EXPIRY_WARNING_DAYS, 10) || 60,
 };
 
 module.exports = env;

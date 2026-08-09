@@ -15,19 +15,27 @@ export const NAV_SECTIONS = [
     section: 'Clinical',
     items: [
       { to: '/portal/consultations', label: 'Consultations', roles: ['doctor', 'admin'] },
-      { to: '/portal/tooth-chart', label: 'Tooth Chart', roles: ['doctor'] },
+      { to: '/portal/tooth-chart', label: 'Tooth Chart', roles: ['admin', 'doctor'] },
       { to: '/portal/diagnoses', label: 'Diagnoses', roles: ['doctor'] },
       { to: '/portal/treatment-plans', label: 'Treatment Plans', roles: ['doctor'] },
+      { to: '/portal/treatment-records', label: 'Treatment Records', roles: ['doctor', 'admin', 'receptionist'] },
       { to: '/portal/prescriptions', label: 'Prescriptions', roles: ['doctor', 'pharmacy'] },
       { to: '/portal/investigations', label: 'Investigations', roles: ['doctor'] },
     ],
   },
   {
+    section: 'Pharmacy',
+    items: [
+      { to: '/portal/pharmacy', label: 'Pharmacy', roles: ['pharmacy', 'admin'] },
+      { to: '/portal/inventory', label: 'Inventory', roles: ['pharmacy', 'admin', 'doctor', 'receptionist'] },
+    ],
+  },
+  {
     section: 'Operations',
     items: [
-      { to: '/portal/billing', label: 'Billing', roles: ['admin', 'receptionist'] },
-      { to: '/portal/pharmacy', label: 'Pharmacy', roles: ['admin', 'pharmacy'] },
-      { to: '/portal/inventory', label: 'Inventory', roles: ['admin', 'pharmacy'] },
+      { to: '/portal/billing', label: 'Billing', roles: ['admin', 'receptionist', 'doctor'] },
+      { to: '/portal/payments', label: 'Payments', roles: ['admin', 'receptionist', 'doctor'] },
+      { to: '/portal/services', label: 'Services', roles: ['admin', 'receptionist', 'doctor'] },
       { to: '/portal/follow-ups', label: 'Follow-ups', roles: ['admin', 'doctor', 'receptionist'] },
     ],
   },

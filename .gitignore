@@ -13,6 +13,9 @@ build/
 .env.example
 server/.env
 
+AGENTS.md
+PRD.md
+
 # Logs
 logs/
 *.log
