@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
 import { getRoleDefaultPath } from './LoginPage'
 
@@ -165,7 +166,7 @@ export default function RegisterPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </label>
@@ -187,7 +188,7 @@ export default function RegisterPage() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showConfirmPassword ? 'Hide' : 'Show'}
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </label>
@@ -224,7 +225,7 @@ export default function RegisterPage() {
             Already have an account? <Link to="/login" className="auth-link">Sign In</Link>
           </p>
           <p className="login-back">
-            <Link to="/">← Back to website</Link>
+            <Link to="/" className="inline-flex items-center gap-1"><ArrowLeft size={14} /> Back to website</Link>
           </p>
         </div>
       </div>

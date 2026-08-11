@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { SectionCard } from '../../components/ui/fields'
 import {
   listPatients,
@@ -160,7 +161,7 @@ export default function ConsultationsPage() {
             className="btn btn-outline btn-sm mt"
             onClick={() => setShowNewPatient(true)}
           >
-            + Register new patient
+            <><Plus size={12} className="mr-1" /> Register new patient</>
           </button>
         ) : (
           <form className="new-patient-grid" onSubmit={registerPatient}>

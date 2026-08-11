@@ -6,7 +6,7 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="portal-heading">
-        <h1>Welcome back, {user.name} 👋</h1>
+        <h1>Welcome back, {user.name}</h1>
         <p>
           You are signed in as <strong>{user.roleLabel}</strong>. The clinical
           modules are being built in upcoming phases.

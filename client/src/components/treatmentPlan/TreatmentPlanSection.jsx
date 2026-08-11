@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Trash2, Plus } from 'lucide-react'
 import { SectionCard, TextField } from '../ui/fields'
+import ConfirmationDialog from '../common/ConfirmationDialog'
 import {
   PLAN_ITEM_STATUS_OPTIONS,
   PLAN_PRIORITY_OPTIONS,
@@ -44,6 +46,8 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
   const [saving, setSaving] = useState(false)
   const [declineBox, setDeclineBox] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [confirming, setConfirming] = useState(false)
 
   const load = async () => {
     if (!patientId) return
@@ -188,15 +192,27 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
     }
   }
 
-  const deleteItem = async (plan, item) => {
+  const runConfirmed = async () => {
+    if (!confirmAction) return
+    setConfirming(true)
     setError('')
     setNotice('')
     try {
-      await removePlanItem(plan.id, item.id)
-      await load()
-      setNotice('Plan item removed.')
+      if (confirmAction.kind === 'removeItem') {
+        await removePlanItem(confirmAction.plan.id, confirmAction.item.id)
+        await load()
+        setNotice('Plan item removed.')
+      } else if (confirmAction.kind === 'cancelPlan') {
+        await updateTreatmentPlan(confirmAction.plan.id, { status: 'cancelled' })
+        await load()
+        setNotice(`Plan ${confirmAction.plan.planNumber} cancelled.`)
+      }
+      setConfirmAction(null)
     } catch (err) {
-      setError(err.message || 'Failed to remove plan item.')
+      setError(err.message || 'Failed to complete the action.')
+      setConfirmAction(null)
+    } finally {
+      setConfirming(false)
     }
   }
 
@@ -295,7 +311,7 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
                             </>
                           )}
                           {!planClosed(plan) && (
-                            <button type="button" className="btn btn-outline btn-sm" onClick={() => setPlanStatus(plan, 'cancelled')}>
+                            <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmAction({ kind: 'cancelPlan', plan })}>
                               Cancel Plan
                             </button>
                           )}
@@ -370,9 +386,9 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
                                     type="button"
                                     className="btn-icon"
                                     title="Remove item"
-                                    onClick={() => deleteItem(plan, item)}
+                                    onClick={() => setConfirmAction({ kind: 'removeItem', plan, item })}
                                   >
-                                    ×
+                                    <Trash2 size={14} />
                                   </button>
                                 </>
                               )}
@@ -452,8 +468,8 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
                           </label>
                         </div>
                         <div className="form-actions">
-                          <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                            {saving ? 'Adding…' : '+ Add Item'}
+                          <button type="submit" className="btn btn-primary btn-sm inline-flex items-center gap-1" disabled={saving}>
+                            {saving ? 'Adding…' : <><Plus size={12} /> Add Item</>}
                           </button>
                         </div>
                       </form>
@@ -467,8 +483,8 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
       )}
 
       {canEdit && !open && plans.length > 0 && (
-        <button type="button" className="btn btn-outline btn-block" onClick={() => setOpen(true)}>
-          + New Treatment Plan
+        <button type="button" className="btn btn-outline btn-block inline-flex items-center justify-center gap-1" onClick={() => setOpen(true)}>
+          <Plus size={12} /> New Treatment Plan
         </button>
       )}
 
@@ -488,10 +504,27 @@ export default function TreatmentPlanSection({ patientId, consultationId, visitI
       )}
 
       {canEdit && !open && plans.length === 0 && (
-        <button type="button" className="btn btn-outline btn-block" onClick={() => setOpen(true)}>
-          + Create Treatment Plan
+        <button type="button" className="btn btn-outline btn-block inline-flex items-center justify-center gap-1" onClick={() => setOpen(true)}>
+          <Plus size={12} /> Create Treatment Plan
         </button>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.kind === 'removeItem' ? 'Remove Plan Item?' : 'Cancel Plan?'}
+        message={
+          confirmAction?.kind === 'removeItem'
+            ? `Are you sure you want to remove "${confirmAction.item.procedure}"${confirmAction.item.hasTooth ? ` (Tooth ${confirmAction.item.toothNumber})` : ''} from ${confirmAction.plan.name || confirmAction.plan.planNumber}? This action cannot be undone.`
+            : `Are you sure you want to cancel plan ${confirmAction?.plan?.planNumber}? This action cannot be undone.`
+        }
+        confirmText={confirmAction?.kind === 'removeItem' ? 'Remove' : 'Cancel Plan'}
+        cancelText="Keep"
+        variant="danger"
+        loading={confirming}
+        loadingText="Please wait…"
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirmAction(null)}
+      />
     </SectionCard>
   )
 }

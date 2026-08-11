@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, X, Eye, EyeOff } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
 
 export function getRoleDefaultPath(role) {
@@ -142,7 +143,7 @@ export default function LoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? 'Hide' : 'Show'}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </label>
@@ -180,7 +181,7 @@ export default function LoginPage() {
             Don't have an account? <Link to="/register" className="auth-link">Create Account</Link>
           </p>
           <p className="login-back">
-            <Link to="/">← Back to website</Link>
+            <Link to="/" className="inline-flex items-center gap-1"><ArrowLeft size={14} /> Back to website</Link>
           </p>
         </div>
       </div>
@@ -195,7 +196,7 @@ export default function LoginPage() {
                 className="modal-close"
                 onClick={() => setShowForgotModal(false)}
               >
-                ×
+                <X size={18} />
               </button>
             </div>
             <div className="modal-body">

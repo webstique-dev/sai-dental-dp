@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import { ASSESSMENT_OPTIONS } from '../../constants/options'
 
 export function SectionCard({ title, description, children }) {
@@ -118,7 +119,7 @@ export function CheckPills({ options, value, onChange }) {
             onClick={() => toggle(opt)}
           >
             <span className="check-box" aria-hidden="true">
-              {selected ? '✓' : ''}
+              {selected ? <Check size={12} /> : null}
             </span>
             {opt}
           </button>

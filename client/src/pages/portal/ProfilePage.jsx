@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import useAuth from '../../hooks/useAuth'
 
 export default function ProfilePage() {
@@ -172,7 +173,7 @@ export default function ProfilePage() {
                     onClick={() => setShowCurrent(!showCurrent)}
                     aria-label={showCurrent ? 'Hide password' : 'Show password'}
                   >
-                    {showCurrent ? 'Hide' : 'Show'}
+                  {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </label>
@@ -194,7 +195,7 @@ export default function ProfilePage() {
                     onClick={() => setShowNew(!showNew)}
                     aria-label={showNew ? 'Hide password' : 'Show password'}
                   >
-                    {showNew ? 'Hide' : 'Show'}
+                  {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </label>
@@ -216,7 +217,7 @@ export default function ProfilePage() {
                     onClick={() => setShowConfirm(!showConfirm)}
                     aria-label={showConfirm ? 'Hide password' : 'Show password'}
                   >
-                    {showConfirm ? 'Hide' : 'Show'}
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </label>

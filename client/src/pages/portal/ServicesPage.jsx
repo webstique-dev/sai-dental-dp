@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, Field } from '../../components/ui/fields'
 import { listServices, createService, updateService } from '../../services/serviceService'
 import { SERVICE_CATEGORY_OPTIONS, SERVICE_CATEGORY_BY_VALUE, formatRupees } from '../../constants/options'
@@ -98,7 +99,7 @@ export default function ServicesPage() {
       {canManage && (
         <div className="billing-toolbar">
           <button type="button" className="btn btn-primary" onClick={() => (showForm && !editing ? setShowForm(false) : startCreate())}>
-            {showForm && !editing ? 'Cancel' : showForm && editing ? 'New service' : '+ New service'}
+            {showForm && !editing ? 'Cancel' : showForm && editing ? 'New service' : <><Plus size={12} className="mr-1" /> New service</>}
           </button>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Plus } from 'lucide-react'
 import {
   SectionCard,
   TextField,
@@ -8,6 +9,7 @@ import {
   CheckPills,
   HabitField,
 } from '../../components/ui/fields'
+import ConfirmationDialog from '../../components/common/ConfirmationDialog'
 import { YES_NO_UNKNOWN } from '../../constants/options'
 import {
   getConsultation,
@@ -64,6 +66,7 @@ export default function ConsultationEditorPage() {
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false)
 
   const canEdit =
     (user.role === 'doctor' || user.role === 'admin') &&
@@ -163,6 +166,7 @@ export default function ConsultationEditorPage() {
       const res = await completeConsultation(id)
       setConsultation(res.consultation)
       setForm(structuredClone(res.consultation))
+      setShowCompleteConfirm(false)
       setNotice('Consultation completed successfully.')
     } catch (err) {
       setError(err.message || 'Unable to complete consultation')
@@ -239,8 +243,8 @@ export default function ConsultationEditorPage() {
     <div className="consultation-editor">
       <div className="portal-heading editor-heading">
         <div>
-          <button className="link-back" onClick={() => navigate(-1)}>
-            ← Back
+          <button className="link-back inline-flex items-center gap-1" onClick={() => navigate(-1)}>
+            <ArrowLeft size={14} /> Back
           </button>
           <h1>Clinical Consultation</h1>
         </div>
@@ -345,8 +349,8 @@ export default function ConsultationEditorPage() {
             </button>
           </div>
         ))}
-        <button type="button" className="btn btn-outline btn-sm" onClick={addMedication}>
-          + Add medication
+        <button type="button" className="btn btn-outline btn-sm inline-flex items-center gap-1" onClick={addMedication}>
+          <Plus size={12} /> Add medication
         </button>
       </SectionCard>
 
@@ -622,7 +626,7 @@ export default function ConsultationEditorPage() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={complete}
+              onClick={() => setShowCompleteConfirm(true)}
               disabled={completing}
             >
               {completing ? 'Completing…' : 'Complete Consultation'}
@@ -637,6 +641,19 @@ export default function ConsultationEditorPage() {
           </span>
         )}
       </div>
+
+      <ConfirmationDialog
+        open={showCompleteConfirm}
+        title="Complete Consultation?"
+        message="Completing this consultation locks it and prevents further edits. Any unsaved changes on this page will be lost."
+        confirmText="Complete"
+        cancelText="Cancel"
+        variant="warning"
+        loading={completing}
+        loadingText="Completing…"
+        onConfirm={complete}
+        onCancel={() => setShowCompleteConfirm(false)}
+      />
     </div>
   )
 }

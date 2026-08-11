@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, TextField } from '../ui/fields'
 import {
   DIAGNOSIS_CATEGORY_OPTIONS,
@@ -167,8 +168,8 @@ export default function DiagnosisSection({ patientId, consultationId, visitId, r
       {!readOnly && (
         <>
           {!open ? (
-            <button type="button" className="btn btn-outline btn-block" onClick={() => setOpen(true)}>
-              + Add Diagnosis
+            <button type="button" className="btn btn-outline btn-block inline-flex items-center justify-center gap-1" onClick={() => setOpen(true)}>
+              <Plus size={12} /> Add Diagnosis
             </button>
           ) : (
             <form className="diagnosis-form" onSubmit={submit}>

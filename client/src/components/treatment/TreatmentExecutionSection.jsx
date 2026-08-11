@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, TextField } from '../ui/fields'
+import ConfirmationDialog from '../common/ConfirmationDialog'
 import {
   TREATMENT_OUTCOME_BY_VALUE,
   TREATMENT_OUTCOME_OPTIONS,
@@ -34,6 +36,8 @@ export default function TreatmentExecutionSection({
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(false)
+  const [confirmRec, setConfirmRec] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
   const [form, setForm] = useState({
     procedure: '',
     toothNumber: 0,
@@ -192,15 +196,21 @@ export default function TreatmentExecutionSection({
     }
   }
 
-  const doCancel = async (rec) => {
+  const runCancelConfirm = async () => {
+    if (!confirmRec) return
+    setCancelling(true)
     setError('')
     setNotice('')
     try {
-      await cancelTreatmentRecord(rec.id, { reason: 'Treatment cancelled' })
+      await cancelTreatmentRecord(confirmRec.id, { reason: 'Treatment cancelled' })
       await load()
+      setConfirmRec(null)
       setNotice('Treatment cancelled.')
     } catch (err) {
       setError(err.message || 'Unable to cancel treatment.')
+      setConfirmRec(null)
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -293,7 +303,7 @@ export default function TreatmentExecutionSection({
                       </select>
                     )}
                     {rec.status !== 'cancelled' && (
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => doCancel(rec)}>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmRec(rec)}>
                         Cancel
                       </button>
                     )}
@@ -421,8 +431,8 @@ export default function TreatmentExecutionSection({
                 </div>
               ))}
               {form.materials.length === 0 && (
-                <button type="button" className="btn btn-outline btn-sm" onClick={addMaterial}>
-                  + Add material
+                <button type="button" className="btn btn-outline btn-sm inline-flex items-center gap-1" onClick={addMaterial}>
+                  <Plus size={12} /> Add material
                 </button>
               )}
             </div>
@@ -463,6 +473,19 @@ export default function TreatmentExecutionSection({
           </div>
         </form>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmRec)}
+        title="Cancel Treatment?"
+        message={`Are you sure you want to cancel treatment "${confirmRec?.procedure || ''}"${confirmRec?.hasTooth ? ` (Tooth ${confirmRec.toothNumber})` : ''}? This action cannot be undone.`}
+        confirmText="Cancel Treatment"
+        cancelText="Keep"
+        variant="danger"
+        loading={cancelling}
+        loadingText="Cancelling…"
+        onConfirm={runCancelConfirm}
+        onCancel={() => setConfirmRec(null)}
+      />
     </SectionCard>
   )
 }

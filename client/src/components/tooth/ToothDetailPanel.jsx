@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowRight, X } from 'lucide-react'
 import { Field, TextField } from '../ui/fields'
 import {
   TOOTH_CONDITION_OPTIONS,
@@ -233,7 +234,7 @@ export default function ToothDetailPanel({
             )}
           </div>
           <button type="button" className="link-back" onClick={onClose} aria-label="Close tooth details">
-            Close
+            <X size={16} />
           </button>
         </div>
 
@@ -290,7 +291,7 @@ export default function ToothDetailPanel({
                       <div className="ttl-body">
                         <div className="ttl-title">
                           {ev.type === 'treatment' ? 'Treatment' : 'Finding'}
-                          <span className="ttl-arrow">→</span>
+                          <span className="ttl-arrow"><ArrowRight size={12} className="inline-block mx-1" /></span>
                           {ev.title}
                         </div>
                         {ev.description && <div className="ttl-desc">{ev.description}</div>}

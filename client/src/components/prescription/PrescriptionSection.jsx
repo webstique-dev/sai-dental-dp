@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, TextField } from '../ui/fields'
+import ConfirmationDialog from '../common/ConfirmationDialog'
 import {
   DOSAGE_UNIT_OPTIONS,
   DURATION_UNIT_OPTIONS,
@@ -44,6 +46,8 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ notes: '', items: [emptyItem()] })
+  const [confirmRx, setConfirmRx] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const load = async () => {
     if (!consultationId) return
@@ -154,15 +158,21 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
     }
   }
 
-  const cancelPrescription = async (rx) => {
+  const runCancelConfirm = async () => {
+    if (!confirmRx) return
+    setCancelling(true)
     setError('')
     setNotice('')
     try {
-      await updatePrescription(rx.id, { status: 'cancelled', cancelReason: 'Cancelled from consultation' })
+      await updatePrescription(confirmRx.id, { status: 'cancelled', cancelReason: 'Cancelled from consultation' })
       await load()
+      setConfirmRx(null)
       setNotice('Prescription cancelled.')
     } catch (err) {
       setError(err.message || 'Unable to cancel prescription.')
+      setConfirmRx(null)
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -240,7 +250,7 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
                       </button>
                     )}
                     {!locked && (
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => cancelPrescription(rx)}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmRx(rx)}>
                         Cancel
                       </button>
                     )}
@@ -253,8 +263,8 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
       )}
 
       {!readOnly && !open && (
-        <button type="button" className="btn btn-outline btn-block" onClick={() => setOpen(true)}>
-          + New Prescription
+        <button type="button" className="btn btn-outline btn-block inline-flex items-center justify-center gap-1" onClick={() => setOpen(true)}>
+          <Plus size={12} /> New Prescription
         </button>
       )}
 
@@ -398,8 +408,8 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
               </div>
             ))}
           </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={addItem}>
-            + Add medicine
+          <button type="button" className="btn btn-outline btn-sm inline-flex items-center gap-1" onClick={addItem}>
+            <Plus size={12} /> Add medicine
           </button>
           <TextField label="Prescription notes" textarea value={form.notes} onChange={(v) => setForm((f) => ({ ...f, notes: v }))} />
           <div className="form-actions">
@@ -412,6 +422,19 @@ export default function PrescriptionSection({ patientId, consultationId, visitId
           </div>
         </form>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmRx)}
+        title="Cancel Prescription?"
+        message={`Are you sure you want to cancel prescription ${confirmRx?.prescriptionNumber || ''}? This action cannot be undone.`}
+        confirmText="Cancel Prescription"
+        cancelText="Keep"
+        variant="danger"
+        loading={cancelling}
+        loadingText="Cancelling…"
+        onConfirm={runCancelConfirm}
+        onCancel={() => setConfirmRx(null)}
+      />
     </SectionCard>
   )
 }

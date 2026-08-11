@@ -1,20 +1,29 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Menu, X, LogOut } from 'lucide-react'
 import { navForRole } from '../config/nav'
 import useAuth from '../hooks/useAuth'
+import ConfirmationDialog from '../components/common/ConfirmationDialog'
 
 export default function PortalLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   if (!user) return null
 
   const nav = navForRole(user.role)
 
   const handleLogout = async () => {
-    await logout()
-    navigate('/login')
+    setLoggingOut(true)
+    try {
+      await logout()
+      navigate('/login')
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   const closeDrawer = () => setDrawerOpen(false)
@@ -42,7 +51,7 @@ export default function PortalLayout() {
             onClick={closeDrawer}
             aria-label="Close menu"
           >
-            ×
+            <X size={18} />
           </button>
         </div>
 
@@ -76,7 +85,7 @@ export default function PortalLayout() {
             onClick={() => setDrawerOpen((v) => !v)}
             aria-label="Toggle menu"
           >
-            <span aria-hidden="true">☰</span>
+            <Menu size={20} />
           </button>
           <div className="portal-user">
             <NavLink
@@ -99,7 +108,7 @@ export default function PortalLayout() {
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
               >
                 Sign out
               </button>
@@ -111,6 +120,20 @@ export default function PortalLayout() {
           <Outlet />
         </main>
       </div>
+
+      <ConfirmationDialog
+        open={showLogoutConfirm}
+        title="Sign Out"
+        message="Are you sure you want to sign out of your Sai Dental Clinic account?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        variant="danger"
+        loading={loggingOut}
+        loadingText="Signing out…"
+        icon={LogOut}
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   )
 }

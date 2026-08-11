@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { Plus, Trash2 } from 'lucide-react'
 import { SectionCard, Field } from '../../components/ui/fields'
+import ConfirmationDialog from '../../components/common/ConfirmationDialog'
 import {
   INVOICE_STATUS_BY_VALUE,
   INVOICE_PAYMENT_STATUS_BY_VALUE,
@@ -274,6 +276,7 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null)
 
   const canEdit = invoice.status === 'draft'
   const canPay = invoice.status === 'finalized' && invoice.balance > 0
@@ -303,42 +306,50 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
     }
   }
 
-  const finalize = async () => {
-    setBusy(true)
-    setError('')
-    try {
-      await finalizeInvoice(invoice.id)
-      refresh()
-    } catch (err) {
-      setError(err.message || 'Unable to finalize invoice.')
-    } finally {
-      setBusy(false)
-    }
+  const confirmLabels = {
+    finalize: {
+      title: 'Finalize Invoice?',
+      message: `Finalizing invoice ${invoice.invoiceNumber} locks it so it can no longer be edited. Continue?`,
+      confirmText: 'Finalize',
+      loadingText: 'Finalizing…',
+      variant: 'warning',
+    },
+    cancel: {
+      title: `Cancel Invoice ${invoice.invoiceNumber}?`,
+      message: 'Are you sure you want to cancel this invoice? This action cannot be undone.',
+      confirmText: 'Cancel Invoice',
+      loadingText: 'Cancelling…',
+      variant: 'danger',
+    },
+    removeItem: {
+      title: 'Remove Line Item?',
+      message: confirmAction?.itemName
+        ? `Are you sure you want to remove "${confirmAction.itemName}" from this invoice? This action cannot be undone.`
+        : 'Are you sure you want to remove this line item from the invoice? This action cannot be undone.',
+      confirmText: 'Remove',
+      loadingText: 'Removing…',
+      variant: 'danger',
+    },
   }
+  const activeConfirm = confirmAction ? confirmLabels[confirmAction.kind] : null
 
-  const cancel = async () => {
-    if (!window.confirm(`Cancel invoice ${invoice.invoiceNumber}?`)) return
+  const runConfirmed = async () => {
+    if (!confirmAction) return
     setBusy(true)
     setError('')
     try {
-      const reason = window.prompt('Reason for cancellation (optional)') || ''
-      await cancelInvoice(invoice.id, reason)
+      if (confirmAction.kind === 'finalize') {
+        await finalizeInvoice(invoice.id)
+      } else if (confirmAction.kind === 'cancel') {
+        await cancelInvoice(invoice.id, 'Cancelled by user')
+      } else if (confirmAction.kind === 'removeItem') {
+        await removeInvoiceItem(invoice.id, confirmAction.itemId)
+      }
+      setConfirmAction(null)
       refresh()
     } catch (err) {
-      setError(err.message || 'Unable to cancel invoice.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const removeItem = async (itemId) => {
-    setBusy(true)
-    setError('')
-    try {
-      await removeInvoiceItem(invoice.id, itemId)
-      refresh()
-    } catch (err) {
-      setError(err.message || 'Unable to remove line.')
+      setError(err.message || 'Unable to complete the action.')
+      setConfirmAction(null)
     } finally {
       setBusy(false)
     }
@@ -389,8 +400,8 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
               <td>{formatRupees(it.lineTotal)}</td>
               <td>
                 {canEdit && (
-                  <button type="button" className="btn-icon" title="Remove" onClick={() => removeItem(it.id)}>
-                    ×
+                  <button type="button" className="btn-icon" title="Remove" onClick={() => setConfirmAction({ kind: 'removeItem', itemId: it.id, itemName: it.name })}>
+                    <Trash2 size={14} />
                   </button>
                 )}
               </td>
@@ -446,8 +457,8 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
 
       <div className="billing-actions">
         {canEdit && (
-          <button type="button" className="btn btn-sm btn-outline" onClick={() => setAdding((v) => !v)}>
-            {adding ? 'Close' : '+ Add line'}
+          <button type="button" className="btn btn-sm btn-outline inline-flex items-center gap-1" onClick={() => setAdding((v) => !v)}>
+            {adding ? 'Close' : <><Plus size={12} /> Add line</>}
           </button>
         )}
         {canEdit && (
@@ -456,7 +467,7 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
           </button>
         )}
         {canEdit && (
-          <button type="button" className="btn btn-sm btn-primary" disabled={busy || invoice.items.length === 0} onClick={finalize}>
+          <button type="button" className="btn btn-sm btn-primary" disabled={busy || invoice.items.length === 0} onClick={() => setConfirmAction({ kind: 'finalize' })}>
             Finalize
           </button>
         )}
@@ -471,7 +482,7 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
           </button>
         )}
         {canEdit && (
-          <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={cancel}>
+          <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => setConfirmAction({ kind: 'cancel' })}>
             Cancel
           </button>
         )}
@@ -534,6 +545,20 @@ function InvoiceCard({ invoice, services, treatments, onChanged }) {
 
       {paying && <PaymentForm invoice={invoice} onRecorded={refresh} />}
       {refunding && <RefundForm invoice={invoice} onRecorded={refresh} />}
+
+      {activeConfirm && (
+        <ConfirmationDialog
+          open
+          title={activeConfirm.title}
+          message={activeConfirm.message}
+          confirmText={activeConfirm.confirmText}
+          loadingText={activeConfirm.loadingText}
+          variant={activeConfirm.variant}
+          loading={busy}
+          onConfirm={runConfirmed}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   )
 }

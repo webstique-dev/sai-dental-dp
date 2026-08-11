@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { SectionCard, Field } from '../../components/ui/fields'
+import ConfirmationDialog from '../../components/common/ConfirmationDialog'
 import {
   FOLLOW_UP_STATUS_BY_VALUE,
   FOLLOW_UP_TYPE_BY_VALUE,
@@ -48,6 +50,8 @@ export default function FollowUpsPage() {
     instructions: '',
     notes: '',
   })
+  const [confirmFu, setConfirmFu] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -188,6 +192,23 @@ export default function FollowUpsPage() {
     }
   }
 
+  const runCancelConfirm = async () => {
+    if (!confirmFu) return
+    setCancelling(true)
+    setError('')
+    try {
+      await cancelFollowUp(confirmFu.id, { reason: 'Follow-up cancelled' })
+      await reloadUpcoming()
+      await reloadPatientList()
+      setConfirmFu(null)
+    } catch (err) {
+      setError(err.message || 'Unable to cancel follow-up.')
+      setConfirmFu(null)
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const isOpen = (s) => !['completed', 'cancelled'].includes(s)
 
   return (
@@ -295,7 +316,7 @@ export default function FollowUpsPage() {
               Back
             </button>
             <button type="button" className="btn btn-primary" onClick={() => setShowCreate((v) => !v)}>
-              {showCreate ? 'Cancel' : '+ Schedule follow-up'}
+              {showCreate ? 'Cancel' : <><Plus size={12} className="mr-1" /> Schedule follow-up</>}
             </button>
           </div>
 
@@ -395,10 +416,7 @@ export default function FollowUpsPage() {
                         type="button"
                         className="btn btn-outline btn-sm"
                         disabled={busy}
-                        onClick={() => {
-                          const reason = window.prompt('Cancel reason:', '')
-                          act(cancelFollowUp, fu.id, { reason })
-                        }}
+                        onClick={() => setConfirmFu(fu)}
                       >
                         Cancel
                       </button>
@@ -420,6 +438,19 @@ export default function FollowUpsPage() {
           )}
         </SectionCard>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmFu)}
+        title="Cancel Follow-up?"
+        message={`Are you sure you want to cancel follow-up ${confirmFu?.followUpNumber || ''}? This action cannot be undone.`}
+        confirmText="Cancel Follow-up"
+        cancelText="Keep"
+        variant="danger"
+        loading={cancelling}
+        loadingText="Cancelling…"
+        onConfirm={runCancelConfirm}
+        onCancel={() => setConfirmFu(null)}
+      />
     </div>
   )
 }

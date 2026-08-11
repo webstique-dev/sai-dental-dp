@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, Field } from '../../components/ui/fields'
+import ConfirmationDialog from '../../components/common/ConfirmationDialog'
 import {
   listMedicines,
   createMedicine,
@@ -44,6 +46,8 @@ export default function InventoryPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [movements, setMovements] = useState(null)
+  const [confirmOut, setConfirmOut] = useState(null)
+  const [removing, setRemoving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -123,15 +127,36 @@ export default function InventoryPage() {
     const n = Number(qty)
     if (!Number.isFinite(n) || n <= 0) return
     setError('')
-    try {
-      if (dir === 'in') {
+    if (dir === 'in') {
+      try {
         await stockIn(med.id, { quantity: n, action, notes: window.prompt('Notes (optional):') || '' })
-      } else {
-        await stockOut(med.id, { quantity: n, action, notes: window.prompt('Notes (optional):') || '' })
+        await reload()
+      } catch (err) {
+        setError(err.message || 'Unable to update stock.')
       }
+      return
+    }
+    const notes = window.prompt('Notes (optional):') || ''
+    setConfirmOut({ med, quantity: n, action, notes })
+  }
+
+  const runRemoveConfirm = async () => {
+    if (!confirmOut) return
+    setRemoving(true)
+    setError('')
+    try {
+      await stockOut(confirmOut.med.id, {
+        quantity: confirmOut.quantity,
+        action: confirmOut.action,
+        notes: confirmOut.notes,
+      })
+      setConfirmOut(null)
       await reload()
     } catch (err) {
-      setError(err.message || 'Unable to update stock.')
+      setError(err.message || 'Unable to remove stock.')
+      setConfirmOut(null)
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -168,7 +193,7 @@ export default function InventoryPage() {
         </select>
         {canManage && (
           <button type="button" className="btn btn-primary" onClick={() => (showForm && !editing ? setShowForm(false) : startCreate())}>
-            {showForm && !editing ? 'Cancel' : showForm && editing ? 'New medicine' : '+ New medicine'}
+            {showForm && !editing ? 'Cancel' : showForm && editing ? 'New medicine' : <><Plus size={12} className="mr-1" /> New medicine</>}
           </button>
         )}
       </div>
@@ -309,6 +334,23 @@ export default function InventoryPage() {
           })}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmOut)}
+        title="Remove Stock?"
+        message={
+          confirmOut
+            ? `Are you sure you want to remove ${confirmOut.quantity} unit${confirmOut.quantity === 1 ? '' : 's'} of "${confirmOut.med.name}" from stock? This movement is recorded in the stock ledger and cannot be undone.`
+            : ''
+        }
+        confirmText="Remove Stock"
+        cancelText="Keep"
+        variant="danger"
+        loading={removing}
+        loadingText="Removing…"
+        onConfirm={runRemoveConfirm}
+        onCancel={() => setConfirmOut(null)}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import Seo from '../../components/public/Seo'
 import { SectionHeading, DoctorCard, CtaBanner } from '../../components/public/Sections'
 import { usePublicSiteData } from '../../hooks/usePublicSiteData'
+import { Check } from 'lucide-react'
 
 const TEAM_INTRO = [
   { name: 'Dr. Meera Nair', specialization: 'General Dentistry', bio: 'Founder & lead dentist. Believes every smile deserves gentle, honest care.' },
@@ -44,8 +45,8 @@ export default function DoctorsPage() {
                 specialty — so your care is coordinated, consistent and convenient.
               </p>
               <ul className="about-list">
-                <li><span className="step-num">✓</span><div><strong>Warm, attentive service</strong><p>You're a person, not a patient number.</p></div></li>
-                <li><span className="step-num">✓</span><div><strong>Continued education</strong><p>Our doctors stay current with the latest techniques.</p></div></li>
+                <li><span className="step-num"><Check size={12} /></span><div><strong>Warm, attentive service</strong><p>You're a person, not a patient number.</p></div></li>
+                <li><span className="step-num"><Check size={12} /></span><div><strong>Continued education</strong><p>Our doctors stay current with the latest techniques.</p></div></li>
               </ul>
             </div>
           </div>

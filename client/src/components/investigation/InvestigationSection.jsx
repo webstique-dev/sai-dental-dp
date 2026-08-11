@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionCard, TextField } from '../ui/fields'
 import {
   INVESTIGATION_PRIORITY_BY_VALUE,
@@ -219,7 +220,7 @@ export default function InvestigationSection({ patientId, consultationId, visitI
                           setResultForm({ findings: '', interpretation: '', notes: '' })
                         }}
                       >
-                        {resultBoxId === inv.id ? 'Close' : '+ Add Result'}
+                        {resultBoxId === inv.id ? 'Close' : <><Plus size={12} className="mr-1" /> Add Result</>}
                       </button>
                     )}
                     <select

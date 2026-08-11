@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SectionCard, TextField } from '../ui/fields'
+import ConfirmationDialog from '../common/ConfirmationDialog'
 import {
   FOLLOW_UP_TYPE_BY_VALUE,
   FOLLOW_UP_TYPE_OPTIONS,
@@ -40,6 +41,8 @@ export default function FollowUpSection({
   const [actionId, setActionId] = useState(null)
   const [completeNotes, setCompleteNotes] = useState('')
   const [rescheduleDate, setRescheduleDate] = useState('')
+  const [confirmFu, setConfirmFu] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const load = async () => {
     if (!consultationId) return
@@ -143,15 +146,21 @@ export default function FollowUpSection({
     }
   }
 
-  const doCancel = async (fu) => {
+  const runCancelConfirm = async () => {
+    if (!confirmFu) return
+    setCancelling(true)
     setError('')
     setNotice('')
     try {
-      await cancelFollowUp(fu.id, { reason: 'Follow-up cancelled' })
+      await cancelFollowUp(confirmFu.id, { reason: 'Follow-up cancelled' })
       await load()
+      setConfirmFu(null)
       setNotice('Follow-up cancelled.')
     } catch (err) {
       setError(err.message || 'Unable to cancel follow-up.')
+      setConfirmFu(null)
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -255,7 +264,7 @@ export default function FollowUpSection({
                   >
                     Reschedule
                   </button>
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => doCancel(fu)}>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmFu(fu)}>
                     Cancel
                   </button>
                 </div>
@@ -354,6 +363,19 @@ export default function FollowUpSection({
           </div>
         </form>
       )}
+
+      <ConfirmationDialog
+        open={Boolean(confirmFu)}
+        title="Cancel Follow-up?"
+        message={`Are you sure you want to cancel follow-up ${confirmFu?.followUpNumber || ''}? This action cannot be undone.`}
+        confirmText="Cancel Follow-up"
+        cancelText="Keep"
+        variant="danger"
+        loading={cancelling}
+        loadingText="Cancelling…"
+        onConfirm={runCancelConfirm}
+        onCancel={() => setConfirmFu(null)}
+      />
     </SectionCard>
   )
 }
