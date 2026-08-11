@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../../components/public/Icon'
 import Seo from '../../components/public/Seo'
-import { SectionHeading } from '../../components/public/Sections'
+import { Section, SectionHeading } from '../../components/public/Sections'
+import { Field } from '../../components/ui/fields'
 import { usePublicSiteData } from '../../hooks/usePublicSiteData'
 import { publicService } from '../../services/publicService'
 import { TREATMENTS } from '../../data/clinic'
@@ -102,7 +103,7 @@ export default function BookAppointmentPage() {
     return (
       <>
         <Seo title="Booking Confirmed" description="Your dental appointment request has been received." />
-        <section className="container pub-section success-section">
+        <Section className="success-section">
           <div className="success-card">
             <div className="success-icon" aria-hidden="true">
               <Icon name="check" size={34} />
@@ -120,7 +121,7 @@ export default function BookAppointmentPage() {
               <a href="/reviews" className="btn btn-primary">Read patient stories</a>
             </div>
           </div>
-        </section>
+        </Section>
       </>
     )
   }
@@ -134,85 +135,73 @@ export default function BookAppointmentPage() {
         </div>
       </section>
 
-      <section className="container pub-section booking-grid">
-        <div className="booking-story">
-          <h2>What happens next?</h2>
-          <ol className="steps-list">
-            <li><span className="step-num">1</span><div><strong>We call you back</strong><p>Within working hours, our front desk confirms your slot.</p></div></li>
-            <li><span className="step-num">2</span><div><strong>Keep your details handy</strong><p>Any medications or allergies help your doctor prepare.</p></div></li>
-            <li><span className="step-num">3</span><div><strong>Walk in & get treated</strong><p>Arrive 10 minutes early for your first consultation.</p></div></li>
-          </ol>
-          <div className="emergency-note">
-            <Icon name="phone" size={18} />
-            <div><strong>Dental emergency?</strong> <p>Call our emergency line now.</p><a href="tel:+919876543210" className="text-link">+91 98765 43210</a></div>
+      <Section>
+        <div className="booking-grid">
+          <div className="booking-story">
+            <h2>What happens next?</h2>
+            <ol className="steps-list">
+              <li><span className="step-num">1</span><div><strong>We call you back</strong><p>Within working hours, our front desk confirms your slot.</p></div></li>
+              <li><span className="step-num">2</span><div><strong>Keep your details handy</strong><p>Any medications or allergies help your doctor prepare.</p></div></li>
+              <li><span className="step-num">3</span><div><strong>Walk in & get treated</strong><p>Arrive 10 minutes early for your first consultation.</p></div></li>
+            </ol>
+            <div className="emergency-note">
+              <Icon name="phone" size={18} />
+              <div><strong>Dental emergency?</strong> <p>Call our emergency line now.</p><a href="tel:+919876543210" className="text-link">+91 98765 43210</a></div>
+            </div>
           </div>
-        </div>
 
-        <form className="booking-card" onSubmit={submit} noValidate>
-          {serverError && <div className="form-error" role="alert">{serverError}</div>}
-          <div className="form-grid two">
-            <label className="field">
-              <span className="field-label">Full name *</span>
-              <input name="name" autoComplete="name" value={form.name} onChange={set('name')} placeholder="Your full name" />
-              {errors.name && <span className="field-error">{errors.name}</span>}
-            </label>
-            <label className="field">
-              <span className="field-label">Phone *</span>
-              <input name="phone" type="tel" autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
-              {errors.phone && <span className="field-error">{errors.phone}</span>}
-            </label>
-          </div>
-          <div className="form-grid two">
-            <label className="field">
-              <span className="field-label">Email</span>
-              <input name="email" type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder="you@example.com" />
-              {errors.email && <span className="field-error">{errors.email}</span>}
-            </label>
-            <label className="field">
-              <span className="field-label">Treatment *</span>
-              <select name="treatment" value={form.treatment} onChange={set('treatment')}>
-                <option value="">Select a treatment…</option>
-                {treatmentOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
+          <form className="booking-card" onSubmit={submit} noValidate>
+            {serverError && <div className="form-error" role="alert">{serverError}</div>}
+            <div className="form-grid two">
+              <Field label="Full name *" error={errors.name}>
+                <input name="name" autoComplete="name" value={form.name} onChange={set('name')} placeholder="Your full name" />
+              </Field>
+              <Field label="Phone *" error={errors.phone}>
+                <input name="phone" type="tel" autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
+              </Field>
+            </div>
+            <div className="form-grid two">
+              <Field label="Email" error={errors.email}>
+                <input name="email" type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder="you@example.com" />
+              </Field>
+              <Field label="Treatment *" error={errors.treatment}>
+                <select name="treatment" value={form.treatment} onChange={set('treatment')}>
+                  <option value="">Select a treatment…</option>
+                  {treatmentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="form-grid two">
+              <Field label="Preferred date *" error={errors.preferredDate}>
+                <input name="preferredDate" type="date" min={todayString()} value={form.preferredDate} onChange={set('preferredDate')} />
+              </Field>
+              <Field label="Preferred time *" error={errors.preferredTime}>
+                <select name="preferredTime" value={form.preferredTime} onChange={set('preferredTime')}>
+                  <option value="">Select a time…</option>
+                  {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+            </div>
+            <Field label="Preferred doctor (optional)">
+              <select name="preferredDoctorId" value={form.preferredDoctorId} onChange={set('preferredDoctorId')}>
+                <option value="">No preference</option>
+                {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.specialization}</option>)}
               </select>
-              {errors.treatment && <span className="field-error">{errors.treatment}</span>}
-            </label>
-          </div>
-          <div className="form-grid two">
-            <label className="field">
-              <span className="field-label">Preferred date *</span>
-              <input name="preferredDate" type="date" min={todayString()} value={form.preferredDate} onChange={set('preferredDate')} />
-              {errors.preferredDate && <span className="field-error">{errors.preferredDate}</span>}
-            </label>
-            <label className="field">
-              <span className="field-label">Preferred time *</span>
-              <select name="preferredTime" value={form.preferredTime} onChange={set('preferredTime')}>
-                <option value="">Select a time…</option>
-                {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              {errors.preferredTime && <span className="field-error">{errors.preferredTime}</span>}
-            </label>
-          </div>
-          <label className="field">
-            <span className="field-label">Preferred doctor (optional)</span>
-            <select name="preferredDoctorId" value={form.preferredDoctorId} onChange={set('preferredDoctorId')}>
-              <option value="">No preference</option>
-              {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.specialization}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Message (optional)</span>
-            <textarea rows={4} name="message" value={form.message} onChange={set('message')} placeholder="Any symptoms, concerns, or questions…" />
-          </label>
-          <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={submitting}>
-            {submitting ? 'Sending request…' : 'Request appointment'}
-          </button>
-          <p className="form-note">
-            {loading ? 'Loading clinic options… ' : ''}We respect your privacy and never share your details.
-          </p>
-        </form>
-      </section>
+            </Field>
+            <Field label="Message (optional)">
+              <textarea rows={4} name="message" value={form.message} onChange={set('message')} placeholder="Any symptoms, concerns, or questions…" />
+            </Field>
+            <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={submitting}>
+              {submitting ? 'Sending request…' : 'Request appointment'}
+            </button>
+            <p className="form-note">
+              {loading ? 'Loading clinic options… ' : ''}We respect your privacy and never share your details.
+            </p>
+          </form>
+        </div>
+      </Section>
     </>
   )
 }

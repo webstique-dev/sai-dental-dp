@@ -10,6 +10,33 @@ export function SectionHeading({ eyebrow, title, lead, align = 'center' }) {
   )
 }
 
+export function Section({ children, container = true, variant = 'default', className = '', as: Tag = 'section', ...rest }) {
+  const classes = [variant === 'alt' ? 'pub-alt-section' : 'pub-section', className].filter(Boolean).join(' ').trim()
+  return (
+    <Tag className={classes} {...rest}>
+      {container ? <div className="container">{children}</div> : children}
+    </Tag>
+  )
+}
+
+export function SectionContainer({ children, className = '', ...rest }) {
+  return (
+    <div className={`container ${className}`.trim()} {...rest}>
+      {children}
+    </div>
+  )
+}
+
+export function ResponsiveGrid({ cols = 3, className = '', children }) {
+  return (
+    <div className={`card-grid card-grid-${cols} ${className}`.trim()}>{children}</div>
+  )
+}
+
+export const SectionHeader = SectionHeading
+
+export const CTASection = CtaBanner
+
 export function TreatmentCard({ treatment }) {
   return (
     <article className="pub-card treat-card">

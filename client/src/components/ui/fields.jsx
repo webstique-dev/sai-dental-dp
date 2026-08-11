@@ -14,11 +14,12 @@ export function SectionCard({ title, description, children }) {
   )
 }
 
-export function Field({ label, children, hint }) {
+export function Field({ label, children, hint, error }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       {children}
+      {error && <span className="field-error">{error}</span>}
       {hint && <span className="field-hint">{hint}</span>}
     </label>
   )

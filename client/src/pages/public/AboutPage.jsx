@@ -1,6 +1,6 @@
 import Icon from '../../components/public/Icon'
 import Seo from '../../components/public/Seo'
-import { SectionHeading, CtaBanner, StatsBar } from '../../components/public/Sections'
+import { Section, SectionHeading, CtaBanner, StatsBar, ResponsiveGrid } from '../../components/public/Sections'
 import { CLINIC, FACILITIES } from '../../data/clinic'
 
 export default function AboutPage() {
@@ -32,7 +32,7 @@ export default function AboutPage() {
       </section>
 
       {/* Story & Approach Section */}
-      <section className="container pub-section about-content-section">
+      <Section className="about-content-section">
         <div className="about-main-grid">
           <div className="about-story-col">
             <h2 className="section-title">Our Story</h2>
@@ -95,29 +95,27 @@ export default function AboutPage() {
             </div>
           </aside>
         </div>
-      </section>
+      </Section>
 
       {/* Facilities & Promise */}
-      <section className="pub-alt-section">
-        <div className="container">
-          <SectionHeading
-            eyebrow="Our Facilities"
-            title="Hospital-Grade Standards & Care"
-            lead="State-of-the-art equipment in a clean, tranquil clinic environment."
-          />
-          <div className="card-grid card-grid-3">
-            {FACILITIES.map((f) => (
-              <article className="pub-card facility-card" key={f.title}>
-                <span className="pub-icon-badge" aria-hidden="true">
-                  <Icon name={f.icon} size={24} />
-                </span>
-                <h3>{f.title}</h3>
-                <p>{f.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Section variant="alt">
+        <SectionHeading
+          eyebrow="Our Facilities"
+          title="Hospital-Grade Standards & Care"
+          lead="State-of-the-art equipment in a clean, tranquil clinic environment."
+        />
+        <ResponsiveGrid cols={3}>
+          {FACILITIES.map((f) => (
+            <article className="pub-card facility-card" key={f.title}>
+              <span className="pub-icon-badge" aria-hidden="true">
+                <Icon name={f.icon} size={24} />
+              </span>
+              <h3>{f.title}</h3>
+              <p>{f.text}</p>
+            </article>
+          ))}
+        </ResponsiveGrid>
+      </Section>
 
       <CtaBanner
         title="Ready to experience gentle dental care?"

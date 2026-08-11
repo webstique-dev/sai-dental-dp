@@ -1,7 +1,7 @@
 import { Navigate, useParams } from 'react-router-dom'
 import Icon from '../../components/public/Icon'
 import Seo from '../../components/public/Seo'
-import { SectionHeading, CtaBanner } from '../../components/public/Sections'
+import { Section, SectionHeading, CtaBanner } from '../../components/public/Sections'
 import { TREATMENTS, TREATMENT_BY_SLUG } from '../../data/clinic'
 
 export default function TreatmentDetailPage() {
@@ -34,7 +34,7 @@ export default function TreatmentDetailPage() {
         </div>
       </section>
 
-      <section className="container pub-section detail-layout">
+      <Section className="detail-layout">
         <article className="detail-main">
           <h2>About this treatment</h2>
           <p>{treatment.description}</p>
@@ -72,9 +72,9 @@ export default function TreatmentDetailPage() {
           </div>
           <a href={`/book?service=${treatment.slug}`} className="btn btn-primary btn-block btn-lg">Book this treatment</a>
         </aside>
-      </section>
+      </Section>
 
-      <section className="container pub-section">
+      <Section>
         <SectionHeading eyebrow="Also popular" title="Explore more treatments" lead="From the same team you already trust." />
         <div className="detail-next">
           <a href={`/treatments/${next.slug}`} className="pub-card treat-card">
@@ -84,7 +84,7 @@ export default function TreatmentDetailPage() {
             <span className="text-link">Learn more <Icon name="arrow" size={16} /></span>
           </a>
         </div>
-      </section>
+      </Section>
 
       <CtaBanner title={`Looking for ${treatment.title.toLowerCase()}?`} lead="Book a consultation and we'll take care of everything else." />
     </>

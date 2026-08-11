@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Icon from '../../components/public/Icon'
 import Seo from '../../components/public/Seo'
-import { SectionHeading, TreatmentCard, DoctorCard, TestimonialCard, CtaBanner, StatsBar } from '../../components/public/Sections'
+import { Section, SectionHeading, TreatmentCard, DoctorCard, TestimonialCard, CtaBanner, StatsBar, ResponsiveGrid } from '../../components/public/Sections'
 import { usePublicSiteData } from '../../hooks/usePublicSiteData'
 import { CLINIC, TREATMENTS, TESTIMONIALS, WHY_CHOOSE_US } from '../../data/clinic'
 
@@ -82,71 +82,67 @@ export default function HomePage() {
       </section>
 
       {/* Featured treatments */}
-      <section className="container pub-section" id="treatments">
+      <Section id="treatments">
         <SectionHeading
           eyebrow="What we treat"
           title="Care for every smile"
           lead="From everyday cleanings to complete smile makeovers — everything under one roof."
         />
-        <div className="card-grid card-grid-3">
+        <ResponsiveGrid cols={3}>
           {displayTreatments.slice(0, 6).map((t, i) => (
             <TreatmentCard key={`${t.slug}-${i}`} treatment={t} />
           ))}
-        </div>
+        </ResponsiveGrid>
         <div className="section-cta">
           <a href="/treatments" className="btn btn-outline btn-lg">View all treatments <Icon name="arrow" size={18} /></a>
         </div>
-      </section>
+      </Section>
 
       {/* Why choose us */}
-      <section className="pub-alt-section">
-        <div className="container">
-          <SectionHeading eyebrow="Why us" title="Why families choose Sai Dental" />
-          <div className="card-grid card-grid-4">
-            {WHY_CHOOSE_US.map((w) => (
-              <article className="pub-card why-card" key={w.title}>
-                <span className="pub-icon-badge" aria-hidden="true"><Icon name={w.icon} size={24} /></span>
-                <h3>{w.title}</h3>
-                <p>{w.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Section variant="alt">
+        <SectionHeading eyebrow="Why us" title="Why families choose Sai Dental" />
+        <ResponsiveGrid cols={4}>
+          {WHY_CHOOSE_US.map((w) => (
+            <article className="pub-card why-card" key={w.title}>
+              <span className="pub-icon-badge" aria-hidden="true"><Icon name={w.icon} size={24} /></span>
+              <h3>{w.title}</h3>
+              <p>{w.text}</p>
+            </article>
+          ))}
+        </ResponsiveGrid>
+      </Section>
 
       {/* Doctors / team */}
-      <section className="container pub-section">
+      <Section>
         <SectionHeading eyebrow="Our team" title="Meet your dentists" lead="Experienced specialists who treat you like family." />
         {loading ? (
           <p className="muted" role="status" aria-live="polite">Loading our doctors…</p>
         ) : error ? (
           <p className="muted" role="alert">{error}</p>
         ) : (
-          <div className="card-grid card-grid-3">
+          <ResponsiveGrid cols={3}>
             {(doctors.length ? doctors : [{ name: 'Dr. Meera Nair', specialization: 'General Dentistry' }]).map((d, i) => (
               <DoctorCard key={d.id || `d-${i}`} doctor={d} />
             ))}
-          </div>
+          </ResponsiveGrid>
         )}
         <div className="section-cta">
           <a href="/doctors" className="text-link">Meet the full team <Icon name="arrow" size={16} /></a>
         </div>
-      </section>
+      </Section>
 
       {/* Testimonials */}
-      <section className="pub-alt-section">
-        <div className="container">
-          <SectionHeading eyebrow="Patient stories" title="What our patients say" />
-          <div className="card-grid card-grid-3">
-            {TESTIMONIALS.slice(0, 6).map((t) => (
-              <TestimonialCard key={t.name} testimonial={t} />
-            ))}
-          </div>
-        </div>
-      </section>
+      <Section variant="alt">
+        <SectionHeading eyebrow="Patient stories" title="What our patients say" />
+        <ResponsiveGrid cols={3}>
+          {TESTIMONIALS.slice(0, 6).map((t) => (
+            <TestimonialCard key={t.name} testimonial={t} />
+          ))}
+        </ResponsiveGrid>
+      </Section>
 
       {/* Facilities */}
-      <section className="container pub-section">
+      <Section>
         <SectionHeading eyebrow="The clinic" title="Built for your comfort" lead="A modern, spotless environment designed around patient comfort and safety." />
         <div className="facilities-grid">
           {[
@@ -161,10 +157,10 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </Section>
 
       {/* FAQ */}
-      <section className="pub-alt-section">
+      <Section variant="alt" container={false}>
         <div className="container faq-block">
           <SectionHeading eyebrow="Good to know" title="Frequently asked questions" />
           <div className="faq-list">
@@ -184,7 +180,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+      </Section>
 
       <CtaBanner />
     </>

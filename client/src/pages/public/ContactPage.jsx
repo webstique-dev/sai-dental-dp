@@ -1,6 +1,6 @@
 import Icon from '../../components/public/Icon'
 import Seo from '../../components/public/Seo'
-import { SectionHeading, CtaBanner } from '../../components/public/Sections'
+import { Section, CtaBanner } from '../../components/public/Sections'
 import { CLINIC } from '../../data/clinic'
 
 export default function ContactPage() {
@@ -25,7 +25,7 @@ export default function ContactPage() {
       </section>
 
       {/* Contact Grid Section */}
-      <section className="container pub-section">
+      <Section>
         <div className="contact-main-grid">
           {/* Info Cards Grid */}
           <div className="contact-info-grid">
@@ -109,7 +109,7 @@ export default function ContactPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Section>
 
       <CtaBanner
         title="Prefer to book your visit online?"

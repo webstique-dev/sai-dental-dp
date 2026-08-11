@@ -1,5 +1,5 @@
 import Seo from '../../components/public/Seo'
-import { SectionHeading, DoctorCard, CtaBanner } from '../../components/public/Sections'
+import { Section, SectionHeading, DoctorCard, CtaBanner, ResponsiveGrid } from '../../components/public/Sections'
 import { usePublicSiteData } from '../../hooks/usePublicSiteData'
 import { Check } from 'lucide-react'
 
@@ -25,17 +25,16 @@ export default function DoctorsPage() {
         </div>
       </section>
 
-      <section className="container pub-section">
+      <Section>
         {loading && <p className="muted">Loading our team…</p>}
-        <div className="card-grid card-grid-3">
+        <ResponsiveGrid cols={3}>
           {team.map((d, i) => (
             <DoctorCard key={d.id || `doctor-${i}`} doctor={d} />
           ))}
-        </div>
-      </section>
+        </ResponsiveGrid>
+      </Section>
 
-      <section className="pub-alt-section">
-        <div className="container">
+      <Section variant="alt">
           <SectionHeading eyebrow="Why it matters" title="The right doctor, the right care" />
           <div className="about-grid reverse">
             <div className="about-text">
@@ -50,8 +49,7 @@ export default function DoctorsPage() {
               </ul>
             </div>
           </div>
-        </div>
-      </section>
+      </Section>
 
       <CtaBanner title="Find your perfect dentist" lead="Book with the specialist that matches your needs." />
     </>

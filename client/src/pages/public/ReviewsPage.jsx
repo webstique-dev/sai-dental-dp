@@ -1,5 +1,5 @@
 import Seo from '../../components/public/Seo'
-import { SectionHeading, TestimonialCard, CtaBanner } from '../../components/public/Sections'
+import { Section, SectionHeading, TestimonialCard, CtaBanner, ResponsiveGrid } from '../../components/public/Sections'
 import { TESTIMONIALS } from '../../data/clinic'
 
 export default function ReviewsPage() {
@@ -16,13 +16,13 @@ export default function ReviewsPage() {
         </div>
       </section>
 
-      <section className="container pub-section">
-        <div className="card-grid card-grid-2">
+      <Section>
+        <ResponsiveGrid cols={2}>
           {TESTIMONIALS.map((t) => (
             <TestimonialCard key={t.name} testimonial={t} />
           ))}
-        </div>
-      </section>
+        </ResponsiveGrid>
+      </Section>
 
       <CtaBanner title="Your smile is our best review" lead="Join thousands of happy patients — experience the Sai Dental difference." />
     </>
