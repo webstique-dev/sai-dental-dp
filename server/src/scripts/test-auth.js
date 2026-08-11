@@ -122,6 +122,50 @@ async function main() {
   const missingCreds = await call(base, 'POST', '/api/auth/login', { body: {} });
   check(missingCreds.status === 400, 'missing credentials -> 400');
 
+  section('REGISTRATION & PASSWORD CHANGE');
+  const regUser = {
+    name: 'Test New User',
+    email: 'newuser@saidental.local',
+    phone: '9876543210',
+    password: 'NewUser123!',
+    role: 'admin', // Attempting privileged role self-assignment
+  };
+  const regRes = await call(base, 'POST', '/api/auth/register', { body: regUser });
+  check(regRes.status === 201, 'registration succeeds (201)');
+  check(regRes.json.user?.role === 'receptionist', 'self-assigned admin overridden to unprivileged role');
+  const regToken = regRes.json.accessToken;
+
+  const dupReg = await call(base, 'POST', '/api/auth/register', { body: regUser });
+  check(dupReg.status === 400, 'duplicate email registration rejected');
+
+  const wrongCurrentPw = await call(base, 'POST', '/api/auth/change-password', {
+    token: regToken,
+    body: { currentPassword: 'WrongPassword!', newPassword: 'BrandNewPw123!' },
+  });
+  check(wrongCurrentPw.status === 400, 'change password with wrong current password rejected');
+
+  const samePw = await call(base, 'POST', '/api/auth/change-password', {
+    token: regToken,
+    body: { currentPassword: 'NewUser123!', newPassword: 'NewUser123!' },
+  });
+  check(samePw.status === 400, 'change password with same password rejected');
+
+  const changePwRes = await call(base, 'POST', '/api/auth/change-password', {
+    token: regToken,
+    body: { currentPassword: 'NewUser123!', newPassword: 'BrandNewPw123!' },
+  });
+  check(changePwRes.status === 200, 'change password succeeds');
+
+  const oldPwLogin = await call(base, 'POST', '/api/auth/login', {
+    body: { email: regUser.email, password: 'NewUser123!' },
+  });
+  check(oldPwLogin.status === 401, 'login with old password rejected');
+
+  const newPwLogin = await call(base, 'POST', '/api/auth/login', {
+    body: { email: regUser.email, password: 'BrandNewPw123!' },
+  });
+  check(newPwLogin.status === 200, 'login with updated password succeeds');
+
   await server.close();
   await rbacServer.close();
   await mongod.stop();

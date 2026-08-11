@@ -50,6 +50,80 @@ async function refresh(refreshToken, accessToken) {
   return { user: user.toSafeJSON(), ...newTokens };
 }
 
+async function register(userData) {
+  const { name, email, phone, password, role } = userData || {};
+  if (!name || !email || !password) {
+    throw new ApiError(400, 'Name, email, and password are required');
+  }
+
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  if (!emailRegex.test(email.trim())) {
+    throw new ApiError(400, 'Please provide a valid email address');
+  }
+
+  if (password.length < 6) {
+    throw new ApiError(400, 'Password must be at least 6 characters long');
+  }
+
+  const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+  if (existingUser) {
+    throw new ApiError(400, 'An account with this email already exists');
+  }
+
+  let assignedRole = 'receptionist';
+  const allowedRoles = ['receptionist', 'doctor', 'pharmacy'];
+  if (role && allowedRoles.includes(role)) {
+    assignedRole = role;
+  }
+
+  const user = new User({
+    name: name.trim(),
+    email: email.toLowerCase().trim(),
+    phone: phone ? phone.trim() : '',
+    password,
+    role: assignedRole,
+  });
+
+  user.lastLoginAt = new Date();
+  const tokens = await issueTokens(user);
+  await user.save();
+
+  return { user: user.toSafeJSON(), ...tokens };
+}
+
+async function changePassword(userId, { currentPassword, newPassword }) {
+  if (!currentPassword || !newPassword) {
+    throw new ApiError(400, 'Current password and new password are required');
+  }
+
+  if (newPassword.length < 6) {
+    throw new ApiError(400, 'New password must be at least 6 characters long');
+  }
+
+  if (currentPassword === newPassword) {
+    throw new ApiError(400, 'New password cannot be the same as current password');
+  }
+
+  const user = await User.findById(userId).select('+password');
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const isMatch = await user.comparePassword(currentPassword);
+  if (!isMatch) {
+    throw new ApiError(400, 'Current password is incorrect');
+  }
+
+  user.password = newPassword;
+  user.refreshToken = null;
+  await user.save();
+
+  const tokens = await issueTokens(user);
+  await user.save({ validateBeforeSave: false });
+
+  return { user: user.toSafeJSON(), ...tokens };
+}
+
 async function logout(userId) {
   await User.findByIdAndUpdate(userId, { refreshToken: null });
 }
@@ -69,4 +143,4 @@ function safelyVerify(fn) {
   }
 }
 
-module.exports = { login, refresh, logout, issueTokens };
+module.exports = { login, register, changePassword, refresh, logout, issueTokens };

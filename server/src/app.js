@@ -14,7 +14,20 @@ app.use(securityHeaders);
 
 app.use(
   cors({
-    origin: env.NODE_ENV === 'production' ? env.CLIENT_URL : true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (env.NODE_ENV === 'production') {
+        const allowedOrigins = (env.CLIENT_URL || '')
+          .split(',')
+          .map((o) => o.trim().replace(/\/+$/, ''));
+        const reqOrigin = origin.replace(/\/+$/, '');
+        if (allowedOrigins.includes(reqOrigin) || reqOrigin.endsWith('.vercel.app')) {
+          return callback(null, true);
+        }
+        return callback(new Error('CORS blocked for origin: ' + origin), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   }),
 );

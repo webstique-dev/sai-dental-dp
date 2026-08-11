@@ -1,7 +1,10 @@
 export const NAV_SECTIONS = [
   {
     section: 'Overview',
-    items: [{ to: '/portal', label: 'Dashboard', end: true }],
+    items: [
+      { to: '/portal', label: 'Dashboard', end: true },
+      { to: '/portal/profile', label: 'My Profile' },
+    ],
   },
   {
     section: 'Patients',

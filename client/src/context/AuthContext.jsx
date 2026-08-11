@@ -35,6 +35,20 @@ export default function AuthProvider({ children }) {
     return u
   }, [])
 
+  const register = useCallback(async (userData) => {
+    const u = await authService.register(userData)
+    setUser(u)
+    return u
+  }, [])
+
+  const changePassword = useCallback(async (passwordData) => {
+    const res = await authService.changePassword(passwordData)
+    if (res.user) {
+      setUser(res.user)
+    }
+    return res
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await authService.logout()
@@ -44,7 +58,7 @@ export default function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   )

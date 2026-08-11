@@ -34,28 +34,41 @@ export default function HomePage() {
       <section className="hero pub-hero">
         <div className="container pub-hero-inner">
           <div className="pub-hero-left">
-            <span className="eyebrow">{CLINIC.name}</span>
-            <h1>
-              Healthy smiles with <span className="text-primary">gentle, modern</span> dental care
+            <div className="hero-badge-wrap">
+              <span className="eyebrow">{CLINIC.name}</span>
+              <span className="hero-rating-badge">
+                <Icon name="star" size={14} className="star-full" /> 4.9 Rating (1,200+ Patients)
+              </span>
+            </div>
+            <h1 className="hero-display-title">
+              Beyond <span className="text-primary">Dentistry.</span>
             </h1>
-            <p>
-              From your routine check-up to implants and clear aligners, our caring team delivers
-              precise, comfortable dentistry for every age — right in the heart of Gurugram.
+            <p className="hero-lead">
+              From routine check-ups to rotary endodontics, dental implants, and clear aligners — expert, gentle care for every family in Gurugram.
             </p>
             <div className="hero-actions">
-              <a href="/book" className="btn btn-primary btn-lg">Book an appointment</a>
-              <a href="/treatments" className="btn btn-outline btn-lg">Explore treatments</a>
+              <a href="/book" className="btn btn-primary btn-lg">
+                Book appointment <Icon name="arrow" size={18} />
+              </a>
+              <a href="/treatments" className="btn btn-accent btn-lg">
+                Explore treatments
+              </a>
             </div>
             <div className="hero-trust">
-              <span><Icon name="shield" size={18} /> 100% sterile & safe</span>
+              <span><Icon name="shield" size={18} /> Hospital-grade sterile & safe</span>
               <span><Icon name="check" size={18} /> Trusted since {CLINIC.founded}</span>
             </div>
           </div>
           <div className="pub-hero-right" aria-hidden="true">
             <div className="hero-illustration">
-              <Icon name="tooth" size={120} className="hero-tooth" />
-              <Icon name="sparkles" size={44} className="hero-spark hero-spark-one" />
-              <Icon name="sparkles" size={30} className="hero-spark hero-spark-two" />
+              <div className="hero-illustration-card">
+                <Icon name="tooth" size={110} className="hero-tooth" />
+                <div className="hero-floating-pill">
+                  <Icon name="sparkles" size={18} /> 100% Pain-free procedures
+                </div>
+              </div>
+              <Icon name="sparkles" size={38} className="hero-spark hero-spark-one" />
+              <Icon name="sparkles" size={26} className="hero-spark hero-spark-two" />
             </div>
           </div>
         </div>

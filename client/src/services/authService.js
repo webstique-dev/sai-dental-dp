@@ -7,6 +7,20 @@ export async function login(credentials) {
   return data.user
 }
 
+export async function register(userData) {
+  const data = await api.post('/auth/register', userData)
+  tokenStore.save(data)
+  return data.user
+}
+
+export async function changePassword(passwordData) {
+  const data = await api.post('/auth/change-password', passwordData)
+  if (data.accessToken && data.refreshToken) {
+    tokenStore.save(data)
+  }
+  return data
+}
+
 export async function fetchMe() {
   return api.get('/auth/me')
 }

@@ -11,10 +11,13 @@ import ReviewsPage from './pages/public/ReviewsPage'
 import ContactPage from './pages/public/ContactPage'
 import BookAppointmentPage from './pages/public/BookAppointmentPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import PortalLayout from './layouts/PortalLayout'
 import DashboardPage from './pages/portal/DashboardPage'
 import ModulePlaceholder from './pages/portal/ModulePlaceholder'
+
+const ProfilePage = lazy(() => import('./pages/portal/ProfilePage'))
 
 const ConsultationsPage = lazy(() => import('./pages/portal/ConsultationsPage'))
 const ConsultationEditorPage = lazy(() => import('./pages/portal/ConsultationEditorPage'))
@@ -59,9 +62,18 @@ export default function App() {
             <Route path="*" element={<HomePage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/portal" element={<PortalLayout />}>
               <Route index element={<DashboardPage />} />
+              <Route
+                path="profile"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <ProfilePage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="consultations"
                 element={

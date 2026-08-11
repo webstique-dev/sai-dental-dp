@@ -79,20 +79,31 @@ export default function PortalLayout() {
             <span aria-hidden="true">☰</span>
           </button>
           <div className="portal-user">
-            <span className="avatar" aria-hidden="true">
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-            <div className="portal-user-meta">
-              <span className="portal-user-name">{user.name}</span>
-              <span className="portal-user-role">{user.roleLabel}</span>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleLogout}
+            <NavLink
+              to="/portal/profile"
+              className="portal-user-link"
+              title="View & edit profile"
             >
-              Sign out
-            </button>
+              <span className="avatar" aria-hidden="true">
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </span>
+              <div className="portal-user-meta">
+                <span className="portal-user-name">{user.name}</span>
+                <span className="portal-user-role">{user.roleLabel || user.role}</span>
+              </div>
+            </NavLink>
+            <div className="portal-user-actions">
+              <NavLink to="/portal/profile" className="btn btn-ghost btn-sm">
+                Profile
+              </NavLink>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleLogout}
+              >
+                Sign out
+              </button>
+            </div>
           </div>
         </header>
 
