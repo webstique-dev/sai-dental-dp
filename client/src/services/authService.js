@@ -9,8 +9,7 @@ export async function login(credentials) {
 
 export async function register(userData) {
   const data = await api.post('/auth/register', userData)
-  tokenStore.save(data)
-  return data.user
+  return data
 }
 
 export async function changePassword(passwordData) {
@@ -42,3 +41,14 @@ export async function logout() {
     tokenStore.clear()
   }
 }
+
+export const authService = {
+  login,
+  register,
+  changePassword,
+  fetchMe,
+  refreshSession,
+  logout,
+}
+
+export default authService

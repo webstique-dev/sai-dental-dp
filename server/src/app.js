@@ -16,12 +16,17 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
+      const reqOrigin = origin.replace(/\/+$/, '');
       if (env.NODE_ENV === 'production') {
         const allowedOrigins = (env.CLIENT_URL || '')
           .split(',')
           .map((o) => o.trim().replace(/\/+$/, ''));
-        const reqOrigin = origin.replace(/\/+$/, '');
-        if (allowedOrigins.includes(reqOrigin) || reqOrigin.endsWith('.vercel.app')) {
+        if (
+          allowedOrigins.includes(reqOrigin) ||
+          reqOrigin.endsWith('.vercel.app') ||
+          reqOrigin.endsWith('.onrender.com') ||
+          reqOrigin.includes('localhost')
+        ) {
           return callback(null, true);
         }
         return callback(new Error('CORS blocked for origin: ' + origin), false);

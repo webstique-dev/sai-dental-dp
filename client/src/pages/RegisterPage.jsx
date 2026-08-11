@@ -71,14 +71,17 @@ export default function RegisterPage() {
 
     setSubmitting(true)
     try {
-      const newUser = await register({
+      await register({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
         role: formData.role,
       })
-      navigate(getRoleDefaultPath(newUser.role), { replace: true })
+      navigate('/login', {
+        replace: true,
+        state: { message: 'Account created successfully! Please sign in.' },
+      })
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.')
     } finally {

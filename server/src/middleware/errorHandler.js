@@ -21,6 +21,12 @@ const errorHandler = (err, req, res, next) => {
     details = Object.values(err.errors).map((e) => e.message);
   }
 
+  if (err.code === 11000) {
+    statusCode = 400;
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
+    message = `An account or record with this ${field} already exists.`;
+  }
+
   if (statusCode >= 500 && process.env.NODE_ENV !== 'test') {
     console.error('[error]', err);
   }

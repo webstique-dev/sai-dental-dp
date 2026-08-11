@@ -7,7 +7,8 @@ async function login(email, password) {
     throw new ApiError(400, 'Email and password are required');
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select(
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
     '+password',
   );
   if (!user || !(await user.comparePassword(password))) {
@@ -56,8 +57,9 @@ async function register(userData) {
     throw new ApiError(400, 'Name, email, and password are required');
   }
 
+  const normalizedEmail = String(email).toLowerCase().trim();
   const emailRegex = /^\S+@\S+\.\S+$/;
-  if (!emailRegex.test(email.trim())) {
+  if (!emailRegex.test(normalizedEmail)) {
     throw new ApiError(400, 'Please provide a valid email address');
   }
 
@@ -65,7 +67,7 @@ async function register(userData) {
     throw new ApiError(400, 'Password must be at least 6 characters long');
   }
 
-  const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     throw new ApiError(400, 'An account with this email already exists');
   }
@@ -78,17 +80,15 @@ async function register(userData) {
 
   const user = new User({
     name: name.trim(),
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     phone: phone ? phone.trim() : '',
     password,
     role: assignedRole,
   });
 
-  user.lastLoginAt = new Date();
-  const tokens = await issueTokens(user);
   await user.save();
 
-  return { user: user.toSafeJSON(), ...tokens };
+  return { user: user.toSafeJSON() };
 }
 
 async function changePassword(userId, { currentPassword, newPassword }) {

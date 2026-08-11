@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import * as authService from '../services/authService'
+import {
+  fetchMe,
+  login as apiLogin,
+  register as apiRegister,
+  changePassword as apiChangePassword,
+  logout as apiLogout,
+} from '../services/authService'
 import { tokenStore } from '../utils/token'
 import { AuthContext } from './context'
 
@@ -15,7 +21,7 @@ export default function AuthProvider({ children }) {
         return
       }
       try {
-        const res = await authService.fetchMe()
+        const res = await fetchMe()
         if (!cancelled) setUser(res.user)
       } catch {
         if (!cancelled) tokenStore.clear()
@@ -30,19 +36,18 @@ export default function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async (email, password) => {
-    const u = await authService.login({ email, password })
+    const u = await apiLogin({ email, password })
     setUser(u)
     return u
   }, [])
 
   const register = useCallback(async (userData) => {
-    const u = await authService.register(userData)
-    setUser(u)
-    return u
+    const res = await apiRegister(userData)
+    return res
   }, [])
 
   const changePassword = useCallback(async (passwordData) => {
-    const res = await authService.changePassword(passwordData)
+    const res = await apiChangePassword(passwordData)
     if (res.user) {
       setUser(res.user)
     }
@@ -51,7 +56,7 @@ export default function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await authService.logout()
+      await apiLogout()
     } finally {
       setUser(null)
     }
