@@ -52,10 +52,45 @@ async function listPatients({ search, limit = 25, skip = 0 } = {}) {
   return { items, total };
 }
 
+async function checkDuplicatePatient({ phone, firstName, lastName } = {}) {
+  const conditions = [];
+  if (phone && phone.trim()) {
+    conditions.push({ phone: phone.trim() });
+  }
+  if (firstName && lastName) {
+    const rxFirst = new RegExp(`^${firstName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const rxLast = new RegExp(`^${lastName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    conditions.push({ firstName: rxFirst, lastName: rxLast });
+  }
+  if (conditions.length === 0) {
+    return { isDuplicate: false, matches: [] };
+  }
+
+  const matches = await Patient.find({
+    isArchived: false,
+    $or: conditions,
+  }).limit(10);
+
+  return {
+    isDuplicate: matches.length > 0,
+    matches,
+  };
+}
+
+async function updatePatient(id, payload) {
+  const patient = await Patient.findById(id);
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  const data = normalize({ ...patient.toObject(), ...payload });
+  Object.assign(patient, data);
+  await patient.save();
+  return patient;
+}
+
 async function getPatient(id) {
   const patient = await Patient.findById(id);
   if (!patient) throw new ApiError(404, 'Patient not found');
   return patient;
 }
 
-module.exports = { createPatient, listPatients, getPatient };
+module.exports = { createPatient, listPatients, getPatient, checkDuplicatePatient, updatePatient };

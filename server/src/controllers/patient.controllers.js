@@ -21,4 +21,15 @@ const getById = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, patient });
 });
 
-module.exports = { create, list, getById };
+const checkDuplicate = asyncHandler(async (req, res) => {
+  const { phone, firstName, lastName } = req.query;
+  const result = await patientService.checkDuplicatePatient({ phone, firstName, lastName });
+  res.status(200).json({ success: true, ...result });
+});
+
+const update = asyncHandler(async (req, res) => {
+  const patient = await patientService.updatePatient(req.params.id, req.body);
+  res.status(200).json({ success: true, message: 'Patient updated', patient });
+});
+
+module.exports = { create, list, getById, checkDuplicate, update };

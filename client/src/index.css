@@ -1138,16 +1138,20 @@ textarea:focus,
 
 .portal-sidebar {
   width: 260px;
+  flex-shrink: 0;
   background: var(--color-paper);
   border-right: 1px solid var(--color-hairline);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
   height: 100vh;
   z-index: 39;
   transition: transform 0.2s linear;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -1174,6 +1178,25 @@ textarea:focus,
   gap: 20px;
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 60, 43, 0.2) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(26, 60, 43, 0.2);
+  border-radius: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 60, 43, 0.4);
 }
 
 .nav-group {
@@ -1225,6 +1248,7 @@ textarea:focus,
 
 .portal-main {
   flex: 1;
+  margin-left: 260px;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2753,6 +2777,10 @@ tr:hover td {
 
   .portal-sidebar.is-open {
     transform: translateX(0);
+  }
+
+  .portal-main {
+    margin-left: 0;
   }
 
   .sidebar-close {

@@ -96,6 +96,13 @@ async function nextReturnNumber() {
   return `RET-${year}-${String(seq).padStart(6, '0')}`;
 }
 
+async function nextDailyTokenNumber(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const dateStr = d.toISOString().split('T')[0];
+  const seq = await nextSequence(`token-${dateStr}`);
+  return `T-${String(seq).padStart(3, '0')}`;
+}
+
 module.exports = {
   Counter,
   nextSequence,
@@ -112,4 +119,5 @@ module.exports = {
   nextPaymentNumber,
   nextDispensingNumber,
   nextReturnNumber,
+  nextDailyTokenNumber,
 };

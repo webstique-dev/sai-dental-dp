@@ -20,4 +20,19 @@ const list = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, items });
 });
 
-module.exports = { create, list };
+const getById = asyncHandler(async (req, res) => {
+  const appointment = await appointmentService.getAppointment(req.params.id);
+  res.status(200).json({ success: true, appointment });
+});
+
+const update = asyncHandler(async (req, res) => {
+  const appointment = await appointmentService.updateAppointment(req.params.id, req.body);
+  res.status(200).json({ success: true, message: 'Appointment updated', appointment });
+});
+
+const cancel = asyncHandler(async (req, res) => {
+  const appointment = await appointmentService.cancelAppointment(req.params.id, req.body && req.body.reason);
+  res.status(200).json({ success: true, message: 'Appointment cancelled', appointment });
+});
+
+module.exports = { create, list, getById, update, cancel };

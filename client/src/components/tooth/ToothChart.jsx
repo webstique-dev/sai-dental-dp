@@ -1,4 +1,5 @@
-import { TOOTH_ROWS, TOOTH_CONDITION_BY_VALUE } from '../../constants/options'
+import { useState } from 'react'
+import { TOOTH_ROWS, PRIMARY_TOOTH_ROWS, TOOTH_CONDITION_BY_VALUE } from '../../constants/options'
 
 function Tooth({ number, status, isMissing, onSelect, selected, disabled }) {
   const condition = TOOTH_CONDITION_BY_VALUE[status] || TOOTH_CONDITION_BY_VALUE.healthy
@@ -63,27 +64,50 @@ export default function ToothChart({
   disabled = false,
   showLegend = true,
 }) {
+  const [dentition, setDentition] = useState('permanent') // 'permanent' | 'primary'
+
   const map = {}
   for (const t of teeth) {
     map[t.toothNumber] = t.currentStatus || 'healthy'
   }
-  const [upperRight, upperLeft] = TOOTH_ROWS.upper
-  const [lowerRight, lowerLeft] = TOOTH_ROWS.lower
+  const rows = dentition === 'primary' ? PRIMARY_TOOTH_ROWS : TOOTH_ROWS
+  const [upperRight, upperLeft] = rows.upper
+  const [lowerRight, lowerLeft] = rows.lower
 
   return (
     <div className="tooth-chart">
+      {/* Dentition Selector */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '12px' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${dentition === 'permanent' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setDentition('permanent')}
+          style={{ fontSize: '12px', padding: '4px 10px' }}
+        >
+          Permanent Dentition (FDI 11–48)
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${dentition === 'primary' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setDentition('primary')}
+          style={{ fontSize: '12px', padding: '4px 10px' }}
+        >
+          Primary / Deciduous (FDI 51–85)
+        </button>
+      </div>
+
       <div className="tooth-chart-scroll">
-        <div className="tooth-chart-caption">Upper</div>
+        <div className="tooth-chart-caption">Upper ({dentition === 'primary' ? 'Primary' : 'Permanent'})</div>
         <div className="tooth-chart-row">
-          <Quadrant teeth={upperRight} status={map} disabled={disabled} onSelect={onSelect} selected={selected} />
-          <Quadrant teeth={upperLeft} status={map} disabled={disabled} onSelect={onSelect} selected={selected} />
+          <Quadrant teeth={upperRight} statusMap={map} disabled={disabled} onSelect={onSelect} selected={selected} />
+          <Quadrant teeth={upperLeft} statusMap={map} disabled={disabled} onSelect={onSelect} selected={selected} />
         </div>
 
         <div className="tooth-chart-row">
-          <Quadrant teeth={lowerRight} status={map} disabled={disabled} onSelect={onSelect} selected={selected} />
-          <Quadrant teeth={lowerLeft} status={map} disabled={disabled} onSelect={onSelect} selected={selected} />
+          <Quadrant teeth={lowerRight} statusMap={map} disabled={disabled} onSelect={onSelect} selected={selected} />
+          <Quadrant teeth={lowerLeft} statusMap={map} disabled={disabled} onSelect={onSelect} selected={selected} />
         </div>
-        <div className="tooth-chart-title">Lower</div>
+        <div className="tooth-chart-title">Lower ({dentition === 'primary' ? 'Primary' : 'Permanent'})</div>
       </div>
 
       {showLegend && (

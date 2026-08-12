@@ -36,6 +36,12 @@ const InvoicePrintPage = lazy(() => import('./pages/portal/InvoicePrintPage'))
 const ReceiptPrintPage = lazy(() => import('./pages/portal/ReceiptPrintPage'))
 const PharmacyPage = lazy(() => import('./pages/portal/PharmacyPage'))
 const InventoryPage = lazy(() => import('./pages/portal/InventoryPage'))
+const PatientsPage = lazy(() => import('./pages/portal/PatientsPage'))
+const AppointmentsPage = lazy(() => import('./pages/portal/AppointmentsPage'))
+const CheckInPage = lazy(() => import('./pages/portal/CheckInPage'))
+const ReportsPage = lazy(() => import('./pages/portal/ReportsPage'))
+const UsersPage = lazy(() => import('./pages/portal/UsersPage'))
+const SettingsPage = lazy(() => import('./pages/portal/SettingsPage'))
 
 function PageFallback() {
   return (
@@ -240,6 +246,66 @@ export default function App() {
                   <ProtectedRoute roles={['admin', 'pharmacy', 'doctor', 'receptionist']}>
                     <Suspense fallback={<PageFallback />}>
                       <InventoryPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="patients"
+                element={
+                  <ProtectedRoute roles={['admin', 'doctor', 'receptionist']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <PatientsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="appointments"
+                element={
+                  <ProtectedRoute roles={['admin', 'doctor', 'receptionist']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <AppointmentsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="check-in"
+                element={
+                  <ProtectedRoute roles={['admin', 'receptionist']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <CheckInPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports"
+                element={
+                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <ReportsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="users"
+                element={
+                  <ProtectedRoute roles={['admin']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <UsersPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <ProtectedRoute roles={['admin']}>
+                    <Suspense fallback={<PageFallback />}>
+                      <SettingsPage />
                     </Suspense>
                   </ProtectedRoute>
                 }

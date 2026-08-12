@@ -29,6 +29,8 @@ const visitSchema = new mongoose.Schema(
       default: null,
     },
     status: { type: String, enum: VISIT_STATUSES, default: 'registered', index: true },
+    token: { type: String, trim: true },
+    source: { type: String, trim: true, default: 'walk-in' },
     isArchived: { type: Boolean, default: false },
   },
   { timestamps: true },

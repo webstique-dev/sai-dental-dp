@@ -11,6 +11,7 @@ import {
 } from '../../constants/options'
 import {
   addInvestigationResult,
+  addInvestigationAttachment,
   consultationInvestigations,
   createInvestigation,
   updateInvestigation,
@@ -35,6 +36,10 @@ export default function InvestigationSection({ patientId, consultationId, visitI
   })
   const [resultBoxId, setResultBoxId] = useState(null)
   const [resultForm, setResultForm] = useState({ findings: '', interpretation: '', notes: '' })
+
+  // Attachment state
+  const [attachBoxId, setAttachBoxId] = useState(null)
+  const [attachForm, setAttachForm] = useState({ name: '', url: '', mimeType: 'image/jpeg' })
 
   const load = async () => {
     if (!consultationId) return
@@ -127,6 +132,31 @@ export default function InvestigationSection({ patientId, consultationId, visitI
     }
   }
 
+  const submitAttachment = async (inv) => {
+    if (!attachForm.url.trim()) {
+      setError('Enter a valid image / document URL.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      await addInvestigationAttachment(inv.id, {
+        name: attachForm.name.trim() || 'X-Ray Attachment',
+        url: attachForm.url.trim(),
+        mimeType: attachForm.mimeType,
+      })
+      await load()
+      setAttachBoxId(null)
+      setAttachForm({ name: '', url: '', mimeType: 'image/jpeg' })
+      setNotice('X-Ray image / document attached successfully.')
+    } catch (err) {
+      setError(err.message || 'Failed to attach file.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const changeStatus = async (inv, status) => {
     setError('')
     setNotice('')
@@ -147,7 +177,7 @@ export default function InvestigationSection({ patientId, consultationId, visitI
   return (
     <SectionCard
       title="Investigations"
-      description="Radiographic and laboratory requests. Results are added later — a new result preserves the previous one."
+      description="Radiographic and laboratory requests. Attach X-rays/OPGs and record findings."
     >
       {error && <div className="form-error">{error}</div>}
       {notice && <div className="form-success">{notice}</div>}
@@ -180,6 +210,24 @@ export default function InvestigationSection({ patientId, consultationId, visitI
                 {inv.indication && <p className="muted">Indication: {inv.indication}</p>}
                 {inv.notes && <p className="muted">Notes: {inv.notes}</p>}
 
+                {/* Attachments Section */}
+                {inv.attachments && inv.attachments.length > 0 && (
+                  <div style={{ marginTop: '10px', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                      Attached X-Rays & Documents ({inv.attachments.length}):
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {inv.attachments.map((att, i) => (
+                        <div key={i} style={{ border: '1px solid #cbd5e1', padding: '6px 10px', borderRadius: '6px', background: '#fff', fontSize: '12px' }}>
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', fontWeight: 600 }}>
+                            📷 {att.name || `Attachment #${i + 1}`}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {inv.result && (
                   <div className="inv-result">
                     <div className="inv-result-head">
@@ -194,7 +242,7 @@ export default function InvestigationSection({ patientId, consultationId, visitI
                   </div>
                 )}
 
-                {inv.resultHistory.length > 0 && (
+                {inv.resultHistory && inv.resultHistory.length > 0 && (
                   <details className="inv-history">
                     <summary>
                       Previous results ({inv.resultHistory.length})
@@ -209,19 +257,32 @@ export default function InvestigationSection({ patientId, consultationId, visitI
                   </details>
                 )}
 
-                {!readOnly && !closed && (
+                {!readOnly && (
                   <div className="plan-actions">
                     {inv.status !== 'cancelled' && (
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setResultBoxId(resultBoxId === inv.id ? null : inv.id)
-                          setResultForm({ findings: '', interpretation: '', notes: '' })
-                        }}
-                      >
-                        {resultBoxId === inv.id ? 'Close' : <><Plus size={12} className="mr-1" /> Add Result</>}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setResultBoxId(resultBoxId === inv.id ? null : inv.id)
+                            setResultForm({ findings: '', interpretation: '', notes: '' })
+                          }}
+                        >
+                          {resultBoxId === inv.id ? 'Close' : <><Plus size={12} className="mr-1" /> Add Result</>}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setAttachBoxId(attachBoxId === inv.id ? null : inv.id)
+                            setAttachForm({ name: `${inv.typeLabel || 'X-Ray'} Image`, url: '', mimeType: 'image/jpeg' })
+                          }}
+                        >
+                          {attachBoxId === inv.id ? 'Close' : '📷 Attach Image'}
+                        </button>
+                      </>
                     )}
                     <select
                       className="small-select"
@@ -235,6 +296,32 @@ export default function InvestigationSection({ patientId, consultationId, visitI
                         </option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {attachBoxId === inv.id && (
+                  <div className="inv-result-box" style={{ background: '#f0f9ff', border: '1px solid #bae6fd', padding: '12px', borderRadius: '8px', marginTop: '10px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0369a1', marginBottom: '8px' }}>Attach X-Ray Image or Document</div>
+                    <TextField
+                      label="Attachment Name"
+                      value={attachForm.name}
+                      onChange={(v) => setAttachForm((f) => ({ ...f, name: v }))}
+                      placeholder="e.g. IOPC Upper Molar X-Ray"
+                    />
+                    <TextField
+                      label="Image / File URL *"
+                      value={attachForm.url}
+                      onChange={(v) => setAttachForm((f) => ({ ...f, url: v }))}
+                      placeholder="https://example.com/xray.jpg or data:image/..."
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm mt-2"
+                      disabled={saving}
+                      onClick={() => submitAttachment(inv)}
+                    >
+                      {saving ? 'Attaching...' : 'Save Attachment'}
+                    </button>
                   </div>
                 )}
 

@@ -19,6 +19,11 @@ const pharmacyRoutes = require('./pharmacy.routes');
 const batchRoutes = require('./batch.routes');
 const inventoryRoutes = require('./inventory.routes');
 const dispensingRoutes = require('./dispensing.routes');
+const checkInRoutes = require('./checkIn.routes');
+const reportsRoutes = require('./reports.routes');
+const userRoutes = require('./user.routes');
+const settingsRoutes = require('./settings.routes');
+const adminBackupRoutes = require('./adminBackup.routes');
 const consultationController = require('../controllers/consultation.controllers');
 
 const router = express.Router();
@@ -26,8 +31,13 @@ const router = express.Router();
 router.use('/health', healthRoutes);
 router.use('/public', publicRoutes);
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/admin', adminBackupRoutes);
 router.use('/patients', patientRoutes);
 router.use('/appointments', appointmentRoutes);
+router.use('/check-in', checkInRoutes);
+router.use('/reports', reportsRoutes);
 router.use('/consultations', consultationRoutes);
 
 // Patient-scoped tooth chart: /api/patients/:patientId/tooth-chart

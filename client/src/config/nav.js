@@ -40,6 +40,7 @@ export const NAV_SECTIONS = [
       { to: '/portal/payments', label: 'Payments', roles: ['admin', 'receptionist', 'doctor'] },
       { to: '/portal/services', label: 'Services', roles: ['admin', 'receptionist', 'doctor'] },
       { to: '/portal/follow-ups', label: 'Follow-ups', roles: ['admin', 'doctor', 'receptionist'] },
+      { to: '/portal/reports', label: 'Reports', roles: ['admin', 'receptionist', 'doctor'] },
     ],
   },
   {

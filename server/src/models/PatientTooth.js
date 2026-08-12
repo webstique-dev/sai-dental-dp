@@ -1,12 +1,22 @@
 const mongoose = require('mongoose');
 
 // FDI permanent tooth numbers (quadrants 1-4).
-const VALID_TOOTH_NUMBERS = [
+const PERMANENT_TOOTH_NUMBERS = [
   11, 12, 13, 14, 15, 16, 17, 18,
   21, 22, 23, 24, 25, 26, 27, 28,
   31, 32, 33, 34, 35, 36, 37, 38,
   41, 42, 43, 44, 45, 46, 47, 48,
 ];
+
+// FDI primary/deciduous tooth numbers (quadrants 5-8).
+const PRIMARY_TOOTH_NUMBERS = [
+  51, 52, 53, 54, 55,
+  61, 62, 63, 64, 65,
+  71, 72, 73, 74, 75,
+  81, 82, 83, 84, 85,
+];
+
+const VALID_TOOTH_NUMBERS = [...PERMANENT_TOOTH_NUMBERS, ...PRIMARY_TOOTH_NUMBERS];
 const TOOTH_NUMBER_SET = new Set(VALID_TOOTH_NUMBERS);
 
 // Clinical codes from the physical dental record (D/M/F/RCT/Cr/Br/I).
@@ -127,6 +137,8 @@ const PatientTooth = mongoose.model('PatientTooth', patientToothSchema);
 module.exports = {
   PatientTooth,
   VALID_TOOTH_NUMBERS,
+  PERMANENT_TOOTH_NUMBERS,
+  PRIMARY_TOOTH_NUMBERS,
   TOOTH_NUMBER_SET,
   TOOTH_CONDITIONS,
   TOOTH_CONDITION_LABELS,

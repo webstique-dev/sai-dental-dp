@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, History, FileText, X } from 'lucide-react'
 import {
   SectionCard,
   TextField,
@@ -15,7 +15,11 @@ import {
   getConsultation,
   updateConsultation,
   completeConsultation,
+  patientConsultations,
 } from '../../services/consultationService'
+import { patientDiagnoses } from '../../services/diagnosisService'
+import { patientPrescriptions } from '../../services/prescriptionService'
+import { patientTreatmentRecords } from '../../services/treatmentRecordService'
 import useAuth from '../../hooks/useAuth'
 import ToothChartModule from '../../components/tooth/ToothChartModule'
 import DiagnosisSection from '../../components/diagnosis/DiagnosisSection'
@@ -67,6 +71,34 @@ export default function ConsultationEditorPage() {
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false)
+
+  // Patient EMR History drawer state
+  const [showEmrHistory, setShowEmrHistory] = useState(false)
+  const [emrData, setEmrData] = useState({ consultations: [], diagnoses: [], prescriptions: [], records: [] })
+  const [emrLoading, setEmrLoading] = useState(false)
+
+  const loadEmrHistory = async (patientId) => {
+    if (!patientId) return
+    setEmrLoading(true)
+    try {
+      const [cRes, dRes, pRes, trRes] = await Promise.all([
+        patientConsultations(patientId),
+        patientDiagnoses(patientId),
+        patientPrescriptions(patientId),
+        patientTreatmentRecords(patientId),
+      ])
+      setEmrData({
+        consultations: cRes.consultations || [],
+        diagnoses: dRes.diagnoses || [],
+        prescriptions: pRes.prescriptions || [],
+        records: trRes.treatmentRecords || [],
+      })
+    } catch {
+      // ignore
+    } finally {
+      setEmrLoading(false)
+    }
+  }
 
   const canEdit =
     (user.role === 'doctor' || user.role === 'admin') &&
@@ -262,14 +294,29 @@ export default function ConsultationEditorPage() {
 
       {/* Patient header */}
       <section className="patient-header">
-        <div className="patient-header-top">
-          <div className="patient-header-name">
-            {patient?.firstName} {patient?.lastName}
+        <div className="patient-header-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="patient-header-name">
+              {patient?.firstName} {patient?.lastName}
+            </div>
+            {patient?.permanentAlerts?.length > 0 && (
+              <div className="alert-chip">Alert: {patient.permanentAlerts.join(', ')}</div>
+            )}
           </div>
-          {patient?.permanentAlerts?.length > 0 && (
-            <div className="alert-chip">Alert: {patient.permanentAlerts.join(', ')}</div>
-          )}
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={() => {
+              setShowEmrHistory(true)
+              loadEmrHistory(patient?._id || patient?.id)
+            }}
+          >
+            <History size={14} /> View Patient EMR History
+          </button>
         </div>
+
         <div className="patient-header-grid">
           <div className="ph-item"><span>Patient ID</span><b>{patient?.patientId || '—'}</b></div>
           <div className="ph-item"><span>OP No</span><b>{consultation.opNumber || '—'}</b></div>
@@ -283,7 +330,129 @@ export default function ConsultationEditorPage() {
             <b>{consultation.visitDate ? new Date(consultation.visitDate).toLocaleString() : '—'}</b>
           </div>
         </div>
+
+        {/* Chief Complaint from Check-in / Appointment */}
+        {(consultation.appointment?.reason || consultation.appointment?.notes) && (
+          <div style={{ marginTop: '12px', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '10px 14px', borderRadius: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Chief Complaint (Captured at Check-in):
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e', marginTop: '2px' }}>
+              {consultation.appointment.reason || '—'}
+            </div>
+            {consultation.appointment.notes && (
+              <div style={{ fontSize: '12px', color: '#0284c7', marginTop: '2px' }}>
+                Note: {consultation.appointment.notes}
+              </div>
+            )}
+          </div>
+        )}
       </section>
+
+      {/* Patient EMR History Drawer Modal */}
+      {showEmrHistory && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'flex-end', zIndex: 1000 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px', height: '100vh', overflowY: 'auto', background: '#fff', borderRadius: 0, padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', pb: '12px', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <History size={20} color="#0284c7" /> EMR History: {patient?.firstName} {patient?.lastName}
+              </h2>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowEmrHistory(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {emrLoading ? (
+              <div className="py-8 text-center">Loading patient clinical history...</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Past Consultations */}
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
+                    Past Consultations ({emrData.consultations.length})
+                  </h3>
+                  {emrData.consultations.length === 0 ? (
+                    <p className="text-sm text-muted">No prior consultations recorded.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                      {emrData.consultations.map((c) => (
+                        <div key={c.id || c._id} style={{ border: '1px solid #e2e8f0', padding: '10px', borderRadius: '6px', fontSize: '13px' }}>
+                          <div style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Visit: {new Date(c.visitDate).toLocaleDateString()}</span>
+                            <span className="badge badge-subtle">{c.status}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>Doctor: {c.doctor?.name || 'Doctor'}</div>
+                          {c.clinicalFindings && <div style={{ marginTop: '4px' }}><strong>Findings:</strong> {c.clinicalFindings}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Past Diagnoses */}
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
+                    Active & Past Diagnoses ({emrData.diagnoses.length})
+                  </h3>
+                  {emrData.diagnoses.length === 0 ? (
+                    <p className="text-sm text-muted">No diagnoses on file.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                      {emrData.diagnoses.map((d) => (
+                        <div key={d._id || d.id} style={{ border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', fontSize: '13px' }}>
+                          <strong>{d.name}</strong> {d.hasTooth ? `(Tooth #${d.toothNumber})` : ''} • <span className="badge badge-info">{d.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Treatment Records */}
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
+                    Executed Treatments ({emrData.records.length})
+                  </h3>
+                  {emrData.records.length === 0 ? (
+                    <p className="text-sm text-muted">No performed treatment records.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                      {emrData.records.map((tr) => (
+                        <div key={tr._id || tr.id} style={{ border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', fontSize: '13px' }}>
+                          <div style={{ fontWeight: 600 }}>{tr.procedure} {tr.hasTooth ? `(Tooth #${tr.toothNumber})` : ''}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>{new Date(tr.procedureDate).toLocaleDateString()} • Outcome: {tr.outcome}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Past Prescriptions */}
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
+                    Prescription History ({emrData.prescriptions.length})
+                  </h3>
+                  {emrData.prescriptions.length === 0 ? (
+                    <p className="text-sm text-muted">No prescriptions recorded.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                      {emrData.prescriptions.map((px) => (
+                        <div key={px._id || px.id} style={{ border: '1px solid #e2e8f0', padding: '10px', borderRadius: '6px', fontSize: '13px' }}>
+                          <div style={{ fontWeight: 600 }}>{px.prescriptionNumber} — {new Date(px.rxDate).toLocaleDateString()}</div>
+                          <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                            {(px.items || []).map((item, idx) => (
+                              <li key={idx}>{item.medicine} ({item.dosage}) - {item.frequency}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Medical history */}
       <SectionCard title="Medical History">

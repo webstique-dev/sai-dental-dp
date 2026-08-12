@@ -38,7 +38,7 @@ async function baseQuery(id) {
     .populate('patient', 'firstName lastName patientId gender dob phone city bloodGroup permanentAlerts isArchived')
     .populate('doctor', 'name role')
     .populate('visit', 'opNumber opDate lastAnnualRev status')
-    .populate('appointment', 'appointmentNumber date time');
+    .populate('appointment', 'appointmentNumber date time reason notes type source token');
 }
 
 function sanitize(consultation) {

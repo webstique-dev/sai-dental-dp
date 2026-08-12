@@ -202,6 +202,7 @@ export default function RegisterPage() {
               onChange={handleChange}
               className="form-select"
             >
+              <option value="admin">Administrator</option>
               <option value="receptionist">Receptionist / General Staff</option>
               <option value="doctor">Doctor</option>
               <option value="pharmacy">Pharmacy Staff</option>

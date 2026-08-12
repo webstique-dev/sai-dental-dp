@@ -18,7 +18,11 @@
     "test:treatment": "node src/scripts/test-treatment.js",
     "test:billing": "node src/scripts/test-billing.js",
     "test:pharmacy": "node src/scripts/test-pharmacy.js",
-    "test:pharmacy-inventory": "node src/scripts/test-pharmacy-inventory.js"
+    "test:pharmacy-inventory": "node src/scripts/test-pharmacy-inventory.js",
+    "test:receptionist": "node src/scripts/test-receptionist.js",
+    "test:doctor": "node src/scripts/test-doctor.js",
+    "test:pharmacy-module": "node src/scripts/test-pharmacy-module.js",
+    "test:admin-module": "node src/scripts/test-admin-module.js"
   },
   "keywords": [],
   "author": "",

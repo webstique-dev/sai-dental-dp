@@ -73,7 +73,7 @@ async function register(userData) {
   }
 
   let assignedRole = 'receptionist';
-  const allowedRoles = ['receptionist', 'doctor', 'pharmacy'];
+  const allowedRoles = ['admin', 'receptionist', 'doctor', 'pharmacy'];
   if (role && allowedRoles.includes(role)) {
     assignedRole = role;
   }

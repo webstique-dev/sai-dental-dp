@@ -51,4 +51,56 @@ async function listAppointments({ listDate, doctor, status, limit = 100 } = {}) 
     .limit(limit);
 }
 
-module.exports = { createAppointment, listAppointments };
+async function getAppointment(id) {
+  const appointment = await Appointment.findById(id)
+    .populate('patient', 'firstName lastName patientId gender phone')
+    .populate('doctor', 'name role');
+  if (!appointment) throw new ApiError(404, 'Appointment not found');
+  return appointment;
+}
+
+async function updateAppointment(id, payload) {
+  const appointment = await Appointment.findById(id);
+  if (!appointment) throw new ApiError(404, 'Appointment not found');
+
+  if (payload.doctor && payload.doctor.toString() !== appointment.doctor.toString()) {
+    const doctor = await User.findById(payload.doctor);
+    if (!doctor || doctor.role !== 'doctor') {
+      throw new ApiError(400, 'Selected doctor is not valid');
+    }
+    appointment.doctor = doctor._id;
+  }
+
+  if (payload.date) appointment.date = payload.date;
+  if (payload.time !== undefined) appointment.time = payload.time;
+  if (payload.type !== undefined) appointment.type = payload.type;
+  if (payload.reason !== undefined) appointment.reason = payload.reason;
+  if (payload.notes !== undefined) appointment.notes = payload.notes;
+  if (payload.status) appointment.status = payload.status;
+  if (payload.source) appointment.source = payload.source;
+  if (payload.token) appointment.token = payload.token;
+
+  await appointment.save();
+  return getAppointment(appointment._id);
+}
+
+async function cancelAppointment(id, reason) {
+  const appointment = await Appointment.findById(id);
+  if (!appointment) throw new ApiError(404, 'Appointment not found');
+
+  appointment.status = 'cancelled';
+  if (reason) {
+    appointment.notes = appointment.notes ? `${appointment.notes} | Cancel reason: ${reason}` : `Cancel reason: ${reason}`;
+  }
+
+  await appointment.save();
+  return getAppointment(appointment._id);
+}
+
+module.exports = {
+  createAppointment,
+  listAppointments,
+  getAppointment,
+  updateAppointment,
+  cancelAppointment,
+};

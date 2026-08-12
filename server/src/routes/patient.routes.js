@@ -6,8 +6,10 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get('/check-duplicate', authorize('admin', 'doctor', 'receptionist'), patientController.checkDuplicate);
 router.post('/', authorize('admin', 'doctor', 'receptionist'), patientController.create);
 router.get('/', authorize('admin', 'doctor', 'receptionist'), patientController.list);
 router.get('/:id', authorize('admin', 'doctor', 'receptionist'), patientController.getById);
+router.patch('/:id', authorize('admin', 'doctor', 'receptionist'), patientController.update);
 
 module.exports = router;

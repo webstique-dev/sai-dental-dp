@@ -66,6 +66,17 @@ export const TOOTH_ROWS = {
   ],
 }
 
+export const PRIMARY_TOOTH_ROWS = {
+  upper: [
+    [55, 54, 53, 52, 51],
+    [61, 62, 63, 64, 65],
+  ],
+  lower: [
+    [85, 84, 83, 82, 81],
+    [71, 72, 73, 74, 75],
+  ],
+}
+
 export const TOOTH_MAP = Object.fromEntries(
   [...TOOTH_ROWS.upper[0], ...TOOTH_ROWS.upper[1], ...TOOTH_ROWS.lower[0], ...TOOTH_ROWS.lower[1]].map((n) => [n, n]),
 )
