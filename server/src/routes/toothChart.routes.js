@@ -8,10 +8,10 @@ const router = express.Router({ mergeParams: true });
 
 router.use(protect);
 
-// Read-only endpoints (receptionist can view chart/history but not edit).
-router.get('/', authorize('admin', 'doctor', 'receptionist'), toothChartController.list);
-router.get('/:toothNumber', authorize('admin', 'doctor', 'receptionist'), toothChartController.getTooth);
-router.get('/:toothNumber/history', authorize('admin', 'doctor', 'receptionist'), toothChartController.history);
+// Read-only endpoints.
+router.get('/', authorize('admin', 'doctor'), toothChartController.list);
+router.get('/:toothNumber', authorize('admin', 'doctor'), toothChartController.getTooth);
+router.get('/:toothNumber/history', authorize('admin', 'doctor'), toothChartController.history);
 
 // Clinical editing endpoints.
 router.post('/:toothNumber/findings', authorize('admin', 'doctor'), toothChartController.addFinding);

@@ -5,7 +5,7 @@ const treatmentPlanController = require('../controllers/treatmentPlan.controller
 // POST /api/treatment-plans (create, admin/doctor)
 const mainRouter = express.Router({ mergeParams: true });
 mainRouter.post('/treatment-plans', protect, authorize('admin', 'doctor'), treatmentPlanController.create);
-mainRouter.get('/treatment-plans/:id', protect, authorize('admin', 'doctor', 'receptionist'), treatmentPlanController.get);
+mainRouter.get('/treatment-plans/:id', protect, authorize('admin', 'doctor'), treatmentPlanController.get);
 mainRouter.patch('/treatment-plans/:id', protect, authorize('admin', 'doctor'), treatmentPlanController.update);
 mainRouter.delete('/treatment-plans/:id', protect, authorize('admin', 'doctor'), treatmentPlanController.remove);
 mainRouter.post('/treatment-plans/:id/restore', protect, authorize('admin'), treatmentPlanController.restore);
@@ -17,6 +17,6 @@ mainRouter.post('/treatment-plans/:id/decline', protect, authorize('admin', 'doc
 
 // GET /api/patients/:patientId/treatment-plans
 const patientRouter = express.Router({ mergeParams: true });
-patientRouter.get('/', protect, authorize('admin', 'doctor', 'receptionist'), treatmentPlanController.listByPatient);
+patientRouter.get('/', protect, authorize('admin', 'doctor'), treatmentPlanController.listByPatient);
 
 module.exports = { mainRouter, patientRouter };

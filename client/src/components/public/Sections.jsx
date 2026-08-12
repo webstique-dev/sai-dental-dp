@@ -10,7 +10,7 @@ export function SectionHeading({ eyebrow, title, lead, align = 'center' }) {
   )
 }
 
-export function Section({ children, container = true, variant = 'default', className = '', as: Tag = 'section', ...rest }) {
+export function Section({ children, container = true, variant = 'default', className = '', as: Tag = 'section', labelStyle, ...rest }) {
   const classes = [variant === 'alt' ? 'pub-alt-section' : 'pub-section', className].filter(Boolean).join(' ').trim()
   return (
     <Tag className={classes} {...rest}>
@@ -19,7 +19,7 @@ export function Section({ children, container = true, variant = 'default', class
   )
 }
 
-export function SectionContainer({ children, className = '', ...rest }) {
+export function SectionContainer({ children, className = '', labelStyle, ...rest }) {
   return (
     <div className={`container ${className}`.trim()} {...rest}>
       {children}

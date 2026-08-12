@@ -178,7 +178,7 @@ habits: {
 );
 
 consultationSchema.index({ patient: 1, visitDate: -1 });
-consultationSchema.index({ visit: 1 }, { unique: true });
+consultationSchema.index({ patient: 1, isArchived: 1 });
 consultationSchema.index({ doctor: 1, status: 1 });
 
 consultationSchema.methods.toSummary = function () {

@@ -67,7 +67,7 @@ const ICON_MAP = {
   tooth: Smile,
 }
 
-export default function Icon({ name, size = 24, strokeWidth = 1.7, className = '', ...props }) {
+export default function Icon({ name, size = 24, strokeWidth = 1.7, className = '', labelStyle, ...props }) {
   const IconComponent = ICON_MAP[name] || Sparkles
   return <IconComponent size={size} strokeWidth={strokeWidth} className={className} aria-hidden="true" {...props} />
 }

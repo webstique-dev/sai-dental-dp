@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, History, FileText, X } from 'lucide-react'
+import { ArrowLeft, Plus, History, FileText, X, CheckCircle2, Calendar, Clock, Stethoscope, Eye, AlertCircle } from 'lucide-react'
 import {
   SectionCard,
   TextField,
@@ -10,6 +10,8 @@ import {
   HabitField,
 } from '../../components/ui/fields'
 import ConfirmationDialog from '../../components/common/ConfirmationDialog'
+import { Modal } from '../../components/common/modal'
+import { useNotification } from '../../components/common/notification'
 import { YES_NO_UNKNOWN } from '../../constants/options'
 import {
   getConsultation,
@@ -20,6 +22,8 @@ import {
 import { patientDiagnoses } from '../../services/diagnosisService'
 import { patientPrescriptions } from '../../services/prescriptionService'
 import { patientTreatmentRecords } from '../../services/treatmentRecordService'
+import { createAppointment } from '../../services/appointmentService'
+import { publicService } from '../../services/publicService'
 import useAuth from '../../hooks/useAuth'
 import ToothChartModule from '../../components/tooth/ToothChartModule'
 import DiagnosisSection from '../../components/diagnosis/DiagnosisSection'
@@ -29,7 +33,10 @@ import InvestigationSection from '../../components/investigation/InvestigationSe
 import TreatmentExecutionSection from '../../components/treatment/TreatmentExecutionSection'
 import FollowUpSection from '../../components/followUp/FollowUpSection'
 
-const STATUS_LABELS = {  draft: 'Draft',
+import ClinicalExamination from '../../components/clinical/ClinicalExamination'
+
+const STATUS_LABELS = {
+  draft: 'Draft',
   'in-progress': 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
@@ -62,6 +69,7 @@ export default function ConsultationEditorPage() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const notify = useNotification()
 
   const [consultation, setConsultation] = useState(null)
   const [form, setForm] = useState(null)
@@ -70,7 +78,23 @@ export default function ConsultationEditorPage() {
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
-  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false)
+
+  // Confirmation Close Dialog state
+  const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false)
+
+  // Pre-completion Summary Review Modal state
+  const [showSummaryModal, setShowSummaryModal] = useState(false)
+
+  // Post-completion Follow-Up Modal state
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false)
+  const [doctorsList, setDoctorsList] = useState([])
+  const [followUpForm, setFollowUpForm] = useState({
+    date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+    time: '10:00 AM',
+    doctorId: user?._id || user?.id || '',
+    reason: 'Routine follow-up checkup after dental treatment',
+  })
+  const [followUpSubmitting, setFollowUpSubmitting] = useState(false)
 
   // Patient EMR History drawer state
   const [showEmrHistory, setShowEmrHistory] = useState(false)
@@ -88,10 +112,10 @@ export default function ConsultationEditorPage() {
         patientTreatmentRecords(patientId),
       ])
       setEmrData({
-        consultations: cRes.consultations || [],
-        diagnoses: dRes.diagnoses || [],
-        prescriptions: pRes.prescriptions || [],
-        records: trRes.treatmentRecords || [],
+        consultations: cRes.consultations || cRes.items || [],
+        diagnoses: dRes.diagnoses || dRes.items || [],
+        prescriptions: pRes.prescriptions || pRes.items || [],
+        records: trRes.treatmentRecords || trRes.items || [],
       })
     } catch {
       // ignore
@@ -100,49 +124,51 @@ export default function ConsultationEditorPage() {
     }
   }
 
-  const canEdit =
-    (user.role === 'doctor' || user.role === 'admin') &&
-    consultation &&
-    consultation.status !== 'completed' &&
-    consultation.status !== 'cancelled'
-
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      setError('')
-      try {
-        const res = await getConsultation(id)
-        if (cancelled) return
+    let unmounted = false
+    setLoading(true)
+    setError('')
+    getConsultation(id)
+      .then((res) => {
+        if (unmounted) return
         setConsultation(res.consultation)
         setForm(structuredClone(res.consultation))
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.message || 'Unable to load consultation. Please try again.')
+
+        const patId = res.consultation?.patient?._id || res.consultation?.patient?.id || res.consultation?.patient
+        if (patId) {
+          loadEmrHistory(patId)
         }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
+      })
+      .catch((err) => {
+        if (!unmounted) setError(err.message || 'Failed to load consultation')
+      })
+      .finally(() => {
+        if (!unmounted) setLoading(false)
+      })
+
+    publicService.getDoctors()
+      .then((docs) => setDoctorsList(Array.isArray(docs) ? docs : docs?.doctors || []))
+      .catch(() => {})
+
     return () => {
-      cancelled = true
+      unmounted = true
     }
   }, [id])
+
+  const canEdit = (user?.role === 'doctor' || user?.role === 'admin') && consultation?.status !== 'completed'
 
   const setAt = (path) => (value) => {
     setForm((prev) => {
       if (!prev) return prev
-      const shallow = structuredClone(prev)
-      const keys = path.split('.')
-      let node = shallow
-      for (let i = 0; i < keys.length - 1; i += 1) {
-        node = node[keys[i]] ??= {}
+      const next = structuredClone(prev)
+      const parts = path.split('.')
+      let cur = next
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!cur[parts[i]]) cur[parts[i]] = {}
+        cur = cur[parts[i]]
       }
-      node[keys[keys.length - 1]] = value
-      return shallow
+      cur[parts[parts.length - 1]] = value
+      return next
     })
   }
 
@@ -159,6 +185,7 @@ export default function ConsultationEditorPage() {
       gingivalFindings,
       hardTissueExamination,
       clinicalFindings,
+      clinicalExamination,
     } = form
     return {
       visitDate,
@@ -171,6 +198,7 @@ export default function ConsultationEditorPage() {
       gingivalFindings,
       hardTissueExamination,
       clinicalFindings,
+      clinicalExamination,
     }
   }, [form])
 
@@ -182,28 +210,64 @@ export default function ConsultationEditorPage() {
       const res = await updateConsultation(id, clinicalPayload)
       setConsultation(res.consultation)
       setForm(structuredClone(res.consultation))
-      setNotice('Consultation saved successfully.')
+      notify.success('Consultation draft saved successfully.')
     } catch (err) {
       setError(err.message || 'Unable to save consultation')
+      notify.error(err.message || 'Unable to save consultation')
     } finally {
       setSaving(false)
     }
   }
 
+  // Final Complete Handler after Reviewing Summary
   const complete = async () => {
     setCompleting(true)
     setError('')
     setNotice('')
     try {
+      // Save pending clinical edits first
+      if (clinicalPayload) {
+        await updateConsultation(id, clinicalPayload)
+      }
       const res = await completeConsultation(id)
       setConsultation(res.consultation)
       setForm(structuredClone(res.consultation))
-      setShowCompleteConfirm(false)
-      setNotice('Consultation completed successfully.')
+      setShowCloseConfirmDialog(false)
+      setShowSummaryModal(false)
+
+      notify.success('Consultation completed and closed successfully.')
+      navigate('/portal/consultations')
     } catch (err) {
-      setError(err.message || 'Unable to complete consultation')
+      const msg = err.message || 'Unable to complete consultation'
+      setError(msg)
+      notify.error(msg)
     } finally {
       setCompleting(false)
+    }
+  }
+
+  // Schedule Follow-Up Appointment Handler
+  const handleScheduleFollowUp = async (e) => {
+    if (e) e.preventDefault()
+    setFollowUpSubmitting(true)
+    try {
+      const patId = consultation.patient?._id || consultation.patient?.id || consultation.patient
+      await createAppointment({
+        patientId: patId,
+        doctorId: followUpForm.doctorId || user?._id || user?.id,
+        date: followUpForm.date,
+        time: followUpForm.time,
+        type: 'Follow-up',
+        source: 'existing',
+        reason: followUpForm.reason,
+      })
+
+      notify.success(`Follow-up appointment scheduled for ${followUpForm.date}!`)
+      setShowFollowUpModal(false)
+    } catch (err) {
+      notify.error(err.message || 'Failed to schedule follow-up appointment')
+    } finally {
+      setFollowUpSubmitting(false)
     }
   }
 
@@ -248,581 +312,484 @@ export default function ConsultationEditorPage() {
   }
 
   if (loading) {
-    return <div className="page-loader">Loading consultation…</div>
+    return (
+      <div className="portal-page py-12 text-center">
+        <p className="text-muted">Loading consultation session...</p>
+      </div>
+    )
   }
 
-  if (error && !consultation) {
+  if (error || !consultation || !form) {
     return (
-      <div className="state-card">
-        <h2>Unable to load consultation. Please try again.</h2>
-        <button className="btn btn-secondary" onClick={() => window.location.reload()}>
-          Reload
+      <div className="portal-page">
+        <div className="alert alert-danger" role="alert">
+          {error || 'Consultation not found'}
+        </div>
+        <button type="button" className="btn btn-secondary mt-4" onClick={() => navigate('/portal/consultations')}>
+          Back to Consultations Hub
         </button>
       </div>
     )
   }
 
-  if (!consultation || !form) return null
-
-  const patient = consultation.patient
-  const age =
-    patient && patient.dob
-      ? patient.age ??
-        (new Date().getFullYear() - new Date(patient.dob).getFullYear())
-      : '—'
+  const patient = consultation.patient || {}
+  const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Patient'
 
   return (
-    <div className="consultation-editor">
-      <div className="portal-heading editor-heading">
-        <div>
-          <button className="link-back inline-flex items-center gap-1" onClick={() => navigate(-1)}>
-            <ArrowLeft size={14} /> Back
+    <div className="portal-page">
+      {/* Top Navigation & Status Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate('/portal/consultations')}>
+            <ArrowLeft size={16} /> Consultations
           </button>
-          <h1>Clinical Consultation</h1>
-        </div>
-        <span className={`status-badge status-${consultation.status}`}>
-          {STATUS_LABELS[consultation.status] || consultation.status}
-        </span>
-      </div>
-
-      {notice && <div className="form-success">{notice}</div>}
-      {error && (
-        <div className="form-error" role="alert">
-          {error}
-        </div>
-      )}
-
-      {/* Patient header */}
-      <section className="patient-header">
-        <div className="patient-header-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="patient-header-name">
-              {patient?.firstName} {patient?.lastName}
-            </div>
-            {patient?.permanentAlerts?.length > 0 && (
-              <div className="alert-chip">Alert: {patient.permanentAlerts.join(', ')}</div>
-            )}
+          <div>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>
+              Clinical Dental Consultation — Session #{consultation.consultationNumber || consultation.id?.slice(-6)}
+            </h1>
+            <span style={{ fontSize: '13px', color: '#64748b' }}>
+              Doctor: <strong>Dr. {consultation.doctor?.name || user?.firstName || 'Doctor'}</strong>
+            </span>
           </div>
+        </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span className={`badge ${consultation.status === 'completed' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '13px', padding: '6px 12px' }}>
+            {STATUS_LABELS[consultation.status] || consultation.status}
+          </span>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary"
+            onClick={() => setShowEmrHistory(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            onClick={() => {
-              setShowEmrHistory(true)
-              loadEmrHistory(patient?._id || patient?.id)
-            }}
           >
-            <History size={14} /> View Patient EMR History
+            <History size={16} /> EMR History Drawer
           </button>
         </div>
+      </div>
 
-        <div className="patient-header-grid">
-          <div className="ph-item"><span>Patient ID</span><b>{patient?.patientId || '—'}</b></div>
-          <div className="ph-item"><span>OP No</span><b>{consultation.opNumber || '—'}</b></div>
-          <div className="ph-item"><span>Age</span><b>{age}</b></div>
-          <div className="ph-item"><span>Gender</span><b>{patient?.gender || '—'}</b></div>
-          <div className="ph-item"><span>DOB</span><b>{patient?.dob ? new Date(patient.dob).toLocaleDateString() : '—'}</b></div>
-          <div className="ph-item"><span>Phone</span><b>{patient?.phone || '—'}</b></div>
-          <div className="ph-item"><span>Doctor</span><b>{consultation.doctor?.name || '—'}</b></div>
-          <div className="ph-item">
-            <span>Visit</span>
-            <b>{consultation.visitDate ? new Date(consultation.visitDate).toLocaleString() : '—'}</b>
+      {notice && <div className="alert alert-success mb-4">{notice}</div>}
+
+      {/* Patient Header Banner */}
+      <div className="card mb-6" style={{ background: '#fff', padding: '18px 22px', borderRadius: '12px', marginBottom: '24px', borderLeft: '5px solid var(--color-forest)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--color-forest)' }}>
+              {patient.title ? `${patient.title}. ` : ''}{patientName}
+            </div>
+            <div style={{ fontSize: '13px', color: '#64748b', marginTop: '3px' }}>
+              PAT-ID: <span className="badge badge-subtle">{patient.patientId || '—'}</span> • Age: {patient.age || '—'} yrs • Gender: <span style={{ textTransform: 'capitalize' }}>{patient.gender || '—'}</span> • Phone: {patient.phone || '—'} • Blood: <span className="badge badge-info">{patient.bloodGroup || 'unknown'}</span>
+            </div>
+          </div>
+
+          {/* Quick Vitals Summary Badges */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>BP Vitals</span>
+              <strong>{form.vitals?.systolic || '—'}/{form.vitals?.diastolic || '—'} mmHg</strong>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>RBS Glucose</span>
+              <strong>{form.vitals?.rbs || '—'} {form.vitals?.rbsUnit || 'mg/dL'}</strong>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Chief Complaint from Check-in / Appointment */}
-        {(consultation.appointment?.reason || consultation.appointment?.notes) && (
-          <div style={{ marginTop: '12px', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '10px 14px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Chief Complaint (Captured at Check-in):
-            </div>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e', marginTop: '2px' }}>
-              {consultation.appointment.reason || '—'}
-            </div>
-            {consultation.appointment.notes && (
-              <div style={{ fontSize: '12px', color: '#0284c7', marginTop: '2px' }}>
-                Note: {consultation.appointment.notes}
-              </div>
-            )}
+      {/* ── STEP 1: PREVIOUS CONSULTATION HISTORY (READ-ONLY) ── */}
+      <SectionCard title="Previous Patient Consultations & EMR Medical History">
+        <p className="field-desc" style={{ marginBottom: '16px', color: '#64748b', fontSize: '13px' }}>
+          Read-only historical consultations across attending doctors for this patient:
+        </p>
+
+        {emrLoading ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+            Loading patient history...
+          </div>
+        ) : emrData.consultations.filter((c) => (c._id || c.id) !== (consultation._id || consultation.id)).length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px', background: '#f8fafc', borderRadius: '8px' }}>
+            No previous consultation history found for this patient.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {emrData.consultations
+              .filter((c) => (c._id || c.id) !== (consultation._id || consultation.id))
+              .map((prevCons) => (
+                <div
+                  key={prevCons._id || prevCons.id}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #e2e8f0' }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
+                        {new Date(prevCons.visitDate || prevCons.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span style={{ fontSize: '13px', color: '#64748b', marginLeft: '12px' }}>
+                        Attending Doctor: <strong>Dr. {prevCons.doctor?.name || 'Doctor'}</strong>
+                      </span>
+                    </div>
+                    <span className={`badge ${prevCons.status === 'completed' ? 'badge-success' : 'badge-subtle'}`}>
+                      {prevCons.status || 'completed'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', fontSize: '13px' }}>
+                    {prevCons.clinicalFindings?.primaryDiagnosis && (
+                      <div style={{ background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                        <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600 }}>DIAGNOSIS</span>
+                        <strong>{prevCons.clinicalFindings.primaryDiagnosis}</strong>
+                      </div>
+                    )}
+
+                    {prevCons.hardTissueExamination?.findings?.length > 0 && (
+                      <div style={{ background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                        <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600 }}>TOOTH CHART FINDINGS</span>
+                        <strong>{prevCons.hardTissueExamination.findings.map((f) => `Tooth ${f.tooth}: ${f.condition}`).join(', ')}</strong>
+                      </div>
+                    )}
+
+                    {prevCons.clinicalFindings?.notes && (
+                      <div style={{ background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                        <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600 }}>CLINICAL NOTES</span>
+                        <span>{prevCons.clinicalFindings.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
           </div>
         )}
-      </section>
+      </SectionCard>
 
-      {/* Patient EMR History Drawer Modal */}
-      {showEmrHistory && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'flex-end', zIndex: 1000 }}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', height: '100vh', overflowY: 'auto', background: '#fff', borderRadius: 0, padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', pb: '12px', marginBottom: '16px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={20} color="#0284c7" /> EMR History: {patient?.firstName} {patient?.lastName}
-              </h2>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowEmrHistory(false)}>
-                <X size={18} />
+      {/* ── STEP 2: MEDICAL HISTORY & VITALS ── */}
+      <SectionCard title="Medical History & Medical Risk Assessment">
+        <p className="field-desc">Select active medical conditions and risk factors for dental procedures:</p>
+        <div className="med-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+          {MEDICAL_LIST.map((name) => {
+            const cond = form.medicalHistory?.conditions?.find((c) => c.name === name)
+            const active = cond?.status === 'yes'
+            return (
+              <button
+                key={name}
+                type="button"
+                className={`choice-pill${active ? ' is-selected' : ''}`}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', textAlign: 'left' }}
+                onClick={() => updateCondition(name, { status: active ? 'no' : 'yes' })}
+              >
+                {name} {active ? '✓' : ''}
               </button>
-            </div>
-
-            {emrLoading ? (
-              <div className="py-8 text-center">Loading patient clinical history...</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Past Consultations */}
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
-                    Past Consultations ({emrData.consultations.length})
-                  </h3>
-                  {emrData.consultations.length === 0 ? (
-                    <p className="text-sm text-muted">No prior consultations recorded.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                      {emrData.consultations.map((c) => (
-                        <div key={c.id || c._id} style={{ border: '1px solid #e2e8f0', padding: '10px', borderRadius: '6px', fontSize: '13px' }}>
-                          <div style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Visit: {new Date(c.visitDate).toLocaleDateString()}</span>
-                            <span className="badge badge-subtle">{c.status}</span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>Doctor: {c.doctor?.name || 'Doctor'}</div>
-                          {c.clinicalFindings && <div style={{ marginTop: '4px' }}><strong>Findings:</strong> {c.clinicalFindings}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Past Diagnoses */}
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
-                    Active & Past Diagnoses ({emrData.diagnoses.length})
-                  </h3>
-                  {emrData.diagnoses.length === 0 ? (
-                    <p className="text-sm text-muted">No diagnoses on file.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                      {emrData.diagnoses.map((d) => (
-                        <div key={d._id || d.id} style={{ border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', fontSize: '13px' }}>
-                          <strong>{d.name}</strong> {d.hasTooth ? `(Tooth #${d.toothNumber})` : ''} • <span className="badge badge-info">{d.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Treatment Records */}
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
-                    Executed Treatments ({emrData.records.length})
-                  </h3>
-                  {emrData.records.length === 0 ? (
-                    <p className="text-sm text-muted">No performed treatment records.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                      {emrData.records.map((tr) => (
-                        <div key={tr._id || tr.id} style={{ border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', fontSize: '13px' }}>
-                          <div style={{ fontWeight: 600 }}>{tr.procedure} {tr.hasTooth ? `(Tooth #${tr.toothNumber})` : ''}</div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>{new Date(tr.procedureDate).toLocaleDateString()} • Outcome: {tr.outcome}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Past Prescriptions */}
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px' }}>
-                    Prescription History ({emrData.prescriptions.length})
-                  </h3>
-                  {emrData.prescriptions.length === 0 ? (
-                    <p className="text-sm text-muted">No prescriptions recorded.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                      {emrData.prescriptions.map((px) => (
-                        <div key={px._id || px.id} style={{ border: '1px solid #e2e8f0', padding: '10px', borderRadius: '6px', fontSize: '13px' }}>
-                          <div style={{ fontWeight: 600 }}>{px.prescriptionNumber} — {new Date(px.rxDate).toLocaleDateString()}</div>
-                          <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
-                            {(px.items || []).map((item, idx) => (
-                              <li key={idx}>{item.medicine} ({item.dosage}) - {item.frequency}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+            )
+          })}
         </div>
-      )}
 
-      {/* Medical history */}
-      <SectionCard title="Medical History">
-        <div className="condition-grid">
-          {MEDICAL_LIST.map((name) =>
-            form.medicalHistory?.conditions?.find((c) => c.name === name) ? (
-              <div key={name} className="condition-row">
-                <span className="condition-name">{name}</span>
-                <ChoiceStrip
-                  options={YES_NO_UNKNOWN}
-                  value={form.medicalHistory.conditions.find((c) => c.name === name).answer}
-                  onChange={(answer) => updateCondition(name, { answer })}
-                />
-                {(name === 'Other' || name === 'Allergy') && (
-                  <div>
-                    <TextField
-                      label={`${name} details`}
-                      value={form.medicalHistory.conditions.find((c) => c.name === name).notes || ''}
-                      onChange={(notes) => updateCondition(name, { notes })}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : null,
-          )}
-        </div>
         <TextField
-          label="Medical history notes"
+          label="Current Medications & Allergies Notes"
           textarea
           value={form.medicalHistory?.notes || ''}
           onChange={setAt('medicalHistory.notes')}
         />
       </SectionCard>
 
-      {/* Current medications */}
-      <SectionCard title="Current Medications">
-        <div className="choice-strip">
-          <button
-            type="button"
-            className={`choice-pill${form.medicalHistory?.takingMedication === 'no' ? ' is-selected' : ''}`}
-            onClick={() => setAt('medicalHistory.takingMedication')('no')}
-          >
-            No current medications
-          </button>
-          <button
-            type="button"
-            className={`choice-pill${form.medicalHistory?.takingMedication === 'yes' ? ' is-selected' : ''}`}
-            onClick={() => setAt('medicalHistory.takingMedication')('yes')}
-          >
-            Yes — taking medication
-          </button>
-        </div>
-        {form.medicalHistory?.medications?.map((med, i) => (
-          <div className="med-row" key={i}>
-            <TextField label="Medicine" value={med.name} onChange={(v) => updateMedication(i, 'name', v)} />
-            <TextField label="Dosage" value={med.dosage} onChange={(v) => updateMedication(i, 'dosage', v)} />
-            <TextField label="Frequency" value={med.frequency} onChange={(v) => updateMedication(i, 'frequency', v)} />
-            <TextField label="Route" value={med.route} onChange={(v) => updateMedication(i, 'route', v)} />
-            <TextField label="Duration" value={med.duration} onChange={(v) => updateMedication(i, 'duration', v)} />
-            <TextField label="Notes" value={med.notes} onChange={(v) => updateMedication(i, 'notes', v)} />
-            <button type="button" className="danger-link" onClick={() => removeMedication(i)}>
-              Remove
-            </button>
-          </div>
-        ))}
-        <button type="button" className="btn btn-outline btn-sm inline-flex items-center gap-1" onClick={addMedication}>
-          <Plus size={12} /> Add medication
-        </button>
-      </SectionCard>
-
       {/* Vitals */}
-      <SectionCard title="Vitals">
-        <div className="form-row">
-          <TextField
-            label="Systolic (BP)"
-            value={form.vitals?.systolic || ''}
-            onChange={setAt('vitals.systolic')}
-          />
-          <TextField
-            label="Diastolic (BP)"
-            value={form.vitals?.diastolic || ''}
-            onChange={setAt('vitals.diastolic')}
-          />
-          <TextField label="RBS" value={form.vitals?.rbs || ''} onChange={setAt('vitals.rbs')} />
-          <TextField label="RBS unit" value={form.vitals?.rbsUnit || 'mg/dL'} onChange={setAt('vitals.rbsUnit')} />
-        </div>
-        <TextField
-          label="Vitals notes"
-          textarea
-          value={form.vitals?.notes || ''}
-          onChange={setAt('vitals.notes')}
-        />
-      </SectionCard>
-
-      {/* Habits */}
-      <SectionCard title="Habits">
-        <div className="habits-grid">
-          <HabitField
-            label="Smoking"
-            habit={form.habits?.smoking}
-            onChange={setAt('habits.smoking')}
-          />
-          <HabitField
-            label="Tobacco"
-            habit={form.habits?.tobacco}
-            onChange={setAt('habits.tobacco')}
-          />
-          <HabitField
-            label="Alcohol"
-            habit={form.habits?.alcohol}
-            onChange={setAt('habits.alcohol')}
-          />
-          <HabitField
-            label="Pan"
-            habit={form.habits?.pan}
-            onChange={setAt('habits.pan')}
-          />
+      <SectionCard title="Patient Vitals">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+          <TextField label="Systolic (BP)" value={form.vitals?.systolic || ''} onChange={setAt('vitals.systolic')} />
+          <TextField label="Diastolic (BP)" value={form.vitals?.diastolic || ''} onChange={setAt('vitals.diastolic')} />
+          <TextField label="RBS Glucose" value={form.vitals?.rbs || ''} onChange={setAt('vitals.rbs')} />
+          <TextField label="RBS Unit" value={form.vitals?.rbsUnit || 'mg/dL'} onChange={setAt('vitals.rbsUnit')} />
         </div>
       </SectionCard>
 
-      {/* Dental history */}
-      <SectionCard title="Dental History">
-        <div className="v-row">
-          <TextField
-            label="Previous dental treatments"
-            textarea
-            value={form.dentalHistory?.previousTreatments || ''}
-            onChange={setAt('dentalHistory.previousTreatments')}
-          />
-          <TextField
-            label="Previous dental problems"
-            textarea
-            value={form.dentalHistory?.previousProblems || ''}
-            onChange={setAt('dentalHistory.previousProblems')}
-          />
-          <TextField
-            label="Previous extractions"
-            value={form.dentalHistory?.previousExtractions || ''}
-            onChange={setAt('dentalHistory.previousExtractions')}
-          />
-          <TextField
-            label="Previous root canal treatments"
-            value={form.dentalHistory?.previousRootCanal || ''}
-            onChange={setAt('dentalHistory.previousRootCanal')}
-          />
-          <TextField
-            label="Previous crowns / bridges / implants"
-            value={form.dentalHistory?.previousCrownsBridgesImplants || ''}
-            onChange={setAt('dentalHistory.previousCrownsBridgesImplants')}
-          />
-          <TextField
-            label="Orthodontic treatment"
-            value={form.dentalHistory?.orthodonticTreatment || ''}
-            onChange={setAt('dentalHistory.orthodonticTreatment')}
-          />
-          <TextField
-            label="Last dental visit"
-            value={form.dentalHistory?.lastDentalVisit || ''}
-            onChange={setAt('dentalHistory.lastDentalVisit')}
-          />
-          <TextField
-            label="Dental history clinical notes"
-            textarea
-            value={form.dentalHistory?.clinicalNotes || ''}
-            onChange={setAt('dentalHistory.clinicalNotes')}
-          />
-        </div>
-      </SectionCard>
+      {/* ── DOCTOR CLINICAL EXAMINATION (EXTRAORAL, INTRAORAL, FDI TOOTH CHART) ── */}
+      <ClinicalExamination
+        data={form.clinicalExamination || {}}
+        onChange={(nextExam) => setForm({ ...form, clinicalExamination: nextExam })}
+        readOnly={!canEdit}
+      />
 
-      {/* Extraoral examination */}
-      <SectionCard title="Extraoral Examination">
-        <div className="assess-g">
-          <AssessmentItem
-            label="Facial Symmetry"
-            value={form.extraoralExamination?.facialSymmetry}
-            onChange={setAt('extraoralExamination.facialSymmetry')}
-          />
-          <AssessmentItem
-            label="TMJ"
-            value={form.extraoralExamination?.tmj}
-            onChange={setAt('extraoralExamination.tmj')}
-          />
-          <AssessmentItem
-            label="Lymph Nodes"
-            value={form.extraoralExamination?.lymphNodes}
-            onChange={setAt('extraoralExamination.lymphNodes')}
-          />
-          <AssessmentItem
-            label="Swelling"
-            value={form.extraoralExamination?.swelling}
-            onChange={setAt('extraoralExamination.swelling')}
-          />
-        </div>
-      </SectionCard>
-
-      {/* Intraoral / soft tissue */}
-      <SectionCard title="Intraoral / Soft Tissue Examination">
-        <div className="exam-g">
-          <AssessmentItem
-            label="Labial / Buccal Mucosa"
-            value={form.intraoralExamination?.labialBuccalMucosa}
-            onChange={setAt('intraoralExamination.labialBuccalMucosa')}
-          />
-          <AssessmentItem
-            label="Tongue"
-            value={form.intraoralExamination?.tongue}
-            onChange={setAt('intraoralExamination.tongue')}
-          />
-          <AssessmentItem
-            label="Floor of Mouth"
-            value={form.intraoralExamination?.floorOfMouth}
-            onChange={setAt('intraoralExamination.floorOfMouth')}
-          />
-          <AssessmentItem
-            label="Gingiva"
-            value={form.intraoralExamination?.gingiva}
-            onChange={setAt('intraoralExamination.gingiva')}
-          />
-          <AssessmentItem
-            label="Hard Palate"
-            value={form.intraoralExamination?.hardPalate}
-            onChange={setAt('intraoralExamination.hardPalate')}
-          />
-          <AssessmentItem
-            label="Soft Palate"
-            value={form.intraoralExamination?.softPalate}
-            onChange={setAt('intraoralExamination.softPalate')}
-          />
-        </div>
-      </SectionCard>
-
-      {/* Gingival findings */}
-      <SectionCard title="Gingival Examination">
-        <CheckPills
-          options={GINGIVAL_OPTIONS}
-          value={form.gingivalFindings?.findings || []}
-          onChange={setAt('gingivalFindings.findings')}
-        />
-        <TextField
-          label="Gingival additional notes"
-          textarea
-          value={form.gingivalFindings?.notes || ''}
-          onChange={setAt('gingivalFindings.notes')}
-        />
-      </SectionCard>
-
-      {/* Hard tissue */}
-      <SectionCard
-        title="Hard Tissue Examination"
-        description="Digital tooth chart — select a tooth to view history and record findings or treatments."
-      >
-        <ToothChartModule
-          patientId={consultation.patient?.id || consultation.patient?._id}
-          consultationId={consultation.id}
-          visitId={consultation.visit?.id || consultation.visit?._id}
-          readOnly={!canEdit}
-          compact
-        />
-        <TextField
-          label="Summary"
-          textarea
-          value={form.hardTissueExamination?.summary || ''}
-          onChange={setAt('hardTissueExamination.summary')}
-        />
-        <TextField
-          label="Notes"
-          textarea
-          value={form.hardTissueExamination?.notes || ''}
-          onChange={setAt('hardTissueExamination.notes')}
-        />
-      </SectionCard>
-
-      {/* Clinical findings */}
-      <SectionCard title="Clinical Findings">
-        <textarea
-          className="findings-textarea"
-          rows={5}
-          value={form.clinicalFindings || ''}
-          onChange={(e) => setAt('clinicalFindings')(e.target.value)}
-        />
-      </SectionCard>
-
-      {/* Diagnosis + Treatment Plan */}
+      {/* ── STEP 5: DIAGNOSIS & TREATMENT PLAN ── */}
       <DiagnosisSection
         patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
-        visitId={consultation.visit?.id || consultation.visit?._id}
-        readOnly={!canEdit}
-      />
-      <TreatmentPlanSection
-        patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
-        visitId={consultation.visit?.id || consultation.visit?._id}
-        readOnly={!canEdit}
-      />
-      <PrescriptionSection
-        patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
-        visitId={consultation.visit?.id || consultation.visit?._id}
-        readOnly={!canEdit}
-      />
-      <InvestigationSection
-        patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
-        visitId={consultation.visit?.id || consultation.visit?._id}
-        readOnly={!canEdit}
-      />
-      <TreatmentExecutionSection
-        patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
-        visitId={consultation.visit?.id || consultation.visit?._id}
-        readOnly={!canEdit}
-      />
-      <FollowUpSection
-        patientId={consultation.patient?.id || consultation.patient?._id}
-        consultationId={consultation.id}
+        consultationId={consultation.id || consultation._id}
         visitId={consultation.visit?.id || consultation.visit?._id}
         readOnly={!canEdit}
       />
 
-      {/* Actions */}
-      <div className="consult-actions">
+      <TreatmentPlanSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id || consultation._id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+
+      {/* ── STEP 6: PRESCRIPTION ── */}
+      <PrescriptionSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id || consultation._id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+
+      {/* ── STEP 7: INVESTIGATIONS ── */}
+      <InvestigationSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id || consultation._id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+
+      <TreatmentExecutionSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id || consultation._id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+
+      <FollowUpSection
+        patientId={consultation.patient?.id || consultation.patient?._id}
+        consultationId={consultation.id || consultation._id}
+        visitId={consultation.visit?.id || consultation.visit?._id}
+        readOnly={!canEdit}
+      />
+
+      {/* ── ACTIONS BAR ── */}
+      <div className="consult-actions card" style={{ background: '#fff', padding: '16px 20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '24px' }}>
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/portal/consultations')}
         >
-          Cancel / Back
+          Back to Consultations
         </button>
+
         {canEdit && (
-          <>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button
               type="button"
               className="btn btn-outline"
               onClick={saveDraft}
               disabled={saving}
             >
-              {saving ? 'Saving…' : 'Save Draft'}
+              {saving ? 'Saving...' : 'Save Draft'}
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => setShowCompleteConfirm(true)}
+              onClick={() => setShowCloseConfirmDialog(true)}
               disabled={completing}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
             >
-              {completing ? 'Completing…' : 'Complete Consultation'}
+              <CheckCircle2 size={16} /> Close Consultation
             </button>
-          </>
+          </div>
         )}
+
         {consultation.status === 'completed' && (
-          <span className="muted">
-            Completed {consultation.completedAt
-              ? `on ${new Date(consultation.completedAt).toLocaleString()}`
-              : ''}
+          <span style={{ fontSize: '13px', color: '#059669', fontWeight: 600 }}>
+            ✓ Consultation Completed {consultation.completedAt ? `on ${new Date(consultation.completedAt).toLocaleString('en-IN')}` : ''}
           </span>
         )}
       </div>
 
+      {/* ── CLOSE CONSULTATION CONFIRMATION POPUP ── */}
       <ConfirmationDialog
-        open={showCompleteConfirm}
-        title="Complete Consultation?"
-        message="Completing this consultation locks it and prevents further edits. Any unsaved changes on this page will be lost."
-        confirmText="Complete"
+        open={showCloseConfirmDialog}
+        title="Close Consultation"
+        message="Are you sure you want to close this consultation?"
+        confirmText="Confirm"
         cancelText="Cancel"
-        variant="warning"
         loading={completing}
-        loadingText="Completing…"
         onConfirm={complete}
-        onCancel={() => setShowCompleteConfirm(false)}
+        onCancel={() => setShowCloseConfirmDialog(false)}
       />
+
+      {/* ── STEP 8: PRE-COMPLETION CONSULTATION SUMMARY REVIEW MODAL ── */}
+      <Modal
+        open={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
+        title="Consultation Summary Review"
+        subtitle="Review clinical findings, tooth chart, diagnosis, treatment plan, and prescription before finalizing."
+        maxWidth="700px"
+      >
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '4px' }}>
+          {/* Patient Overview */}
+          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-forest)' }}>
+              Patient Information
+            </h4>
+            <div style={{ fontSize: '13px', lineHeight: 1.6 }}>
+              <div><strong>Name:</strong> {patientName} ({patient.patientId || 'PAT-ID'})</div>
+              <div><strong>Vitals:</strong> BP {form.vitals?.systolic || '—'}/{form.vitals?.diastolic || '—'} mmHg • RBS {form.vitals?.rbs || '—'} {form.vitals?.rbsUnit || 'mg/dL'}</div>
+            </div>
+          </div>
+
+          {/* Tooth Examination Summary */}
+          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-forest)' }}>
+              Tooth Examination Findings
+            </h4>
+            <p style={{ fontSize: '13px', margin: 0 }}>
+              {form.hardTissueExamination?.summary || 'No tooth examination summary entered.'}
+            </p>
+          </div>
+
+          {/* Clinical Findings & Notes */}
+          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-forest)' }}>
+              Clinical Findings & Notes
+            </h4>
+            <p style={{ fontSize: '13px', margin: 0 }}>
+              {form.clinicalFindings || 'No additional clinical findings entered.'}
+            </p>
+          </div>
+
+          {/* Summary Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowSummaryModal(false)}>
+              Back to Editing
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={complete}
+              disabled={completing}
+              style={{ fontWeight: 600 }}
+            >
+              {completing ? 'Completing…' : 'Confirm & Complete Consultation'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── STEP 10: FOLLOW-UP APPOINTMENT SCHEDULING MODAL ── */}
+      <Modal
+        open={showFollowUpModal}
+        onClose={() => setShowFollowUpModal(false)}
+        title="Schedule Follow-Up Appointment"
+        subtitle={`Consultation completed! Schedule a follow-up visit for ${patientName}?`}
+        maxWidth="500px"
+      >
+        <form onSubmit={handleScheduleFollowUp}>
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Follow-up Date</label>
+            <input
+              type="date"
+              className="form-control"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={followUpForm.date}
+              onChange={(e) => setFollowUpForm({ ...followUpForm, date: e.target.value })}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Time Slot</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={followUpForm.time}
+              onChange={(e) => setFollowUpForm({ ...followUpForm, time: e.target.value })}
+            >
+              <option value="09:00 AM">09:00 AM</option>
+              <option value="10:00 AM">10:00 AM</option>
+              <option value="11:00 AM">11:00 AM</option>
+              <option value="02:00 PM">02:00 PM</option>
+              <option value="04:00 PM">04:00 PM</option>
+              <option value="06:00 PM">06:00 PM</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Assign Doctor</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={followUpForm.doctorId}
+              onChange={(e) => setFollowUpForm({ ...followUpForm, doctorId: e.target.value })}
+            >
+              {doctorsList.map((d) => (
+                <option key={d._id || d.id} value={d._id || d.id}>
+                  Dr. {d.name || `${d.firstName || ''} ${d.lastName || ''}`.trim()}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Reason / Notes</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={followUpForm.reason}
+              onChange={(e) => setFollowUpForm({ ...followUpForm, reason: e.target.value })}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowFollowUpModal(false)}>
+              Skip Follow-Up
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={followUpSubmitting} style={{ fontWeight: 600 }}>
+              {followUpSubmitting ? 'Scheduling...' : 'Schedule Follow-Up Appointment'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── PATIENT EMR HISTORY DRAWER ── */}
+      <Modal
+        open={showEmrHistory}
+        onClose={() => setShowEmrHistory(false)}
+        title={`Patient EMR History — ${patientName}`}
+        maxWidth="650px"
+      >
+        {emrLoading ? (
+          <p className="text-muted py-4">Loading patient EMR history...</p>
+        ) : (
+          <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-forest)' }}>
+                Past Consultations ({emrData.consultations.length})
+              </h4>
+              {emrData.consultations.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: '12px' }}>No previous consultations recorded.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {emrData.consultations.map((c) => (
+                    <div key={c._id || c.id} style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', fontSize: '13px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Session #{c.consultationNumber || c.id?.slice(-6)}</span>
+                      <span className="badge badge-subtle">{c.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-forest)' }}>
+                Diagnoses & Treatment History ({emrData.diagnoses.length})
+              </h4>
+              {emrData.diagnoses.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: '12px' }}>No recorded diagnoses.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {emrData.diagnoses.map((d) => (
+                    <div key={d._id || d.id} style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', fontSize: '13px' }}>
+                      <strong>{d.condition || d.name}</strong> — {d.notes || 'No notes'}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

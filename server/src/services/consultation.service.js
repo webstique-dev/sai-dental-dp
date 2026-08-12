@@ -74,10 +74,27 @@ function summaryView(consultation) {
   };
 }
 
-function assertEditAccess(consultation, actor) {
+async function assertEditAccess(consultation, actor) {
   if (actor.role === 'admin') return;
-  if (actor.role === 'doctor' && String(consultation.doctor._id) === String(actor._id)) {
-    return;
+  if (actor.role === 'doctor') {
+    const docId = consultation.doctor?._id ? String(consultation.doctor._id) : (consultation.doctor ? String(consultation.doctor) : null);
+    const actorId = actor._id ? String(actor._id) : (actor.id ? String(actor.id) : null);
+    if (docId && docId === actorId) return;
+
+    const patId = consultation.patient?._id || consultation.patient?.id || consultation.patient;
+    if (patId && actorId) {
+      const { Appointment } = require('../models/Appointment');
+      const { Visit } = require('../models/Visit');
+      const [assignedAppt, assignedVisit] = await Promise.all([
+        Appointment.findOne({ patient: patId, doctor: actorId, isDeleted: { $ne: true } }),
+        Visit.findOne({ patient: patId, doctor: actorId, isDeleted: { $ne: true } }),
+      ]);
+      if (assignedAppt || assignedVisit) {
+        consultation.doctor = actor._id || actor.id;
+        await consultation.save();
+        return;
+      }
+    }
   }
   throw new ApiError(403, 'You do not have permission to edit this consultation');
 }
@@ -94,6 +111,9 @@ async function createConsultation(payload, actor) {
     doctor = actor;
   } else if (payload.doctorId) {
     doctor = await User.findById(payload.doctorId);
+  } else if (payload.appointmentId) {
+    const appt = await Appointment.findById(payload.appointmentId);
+    if (appt?.doctor) doctor = await User.findById(appt.doctor);
   }
   if (!doctor || doctor.role !== 'doctor') {
     throw new ApiError(400, 'A valid doctor is required');
@@ -102,9 +122,61 @@ async function createConsultation(payload, actor) {
   let appointment = null;
   if (payload.appointmentId) {
     appointment = await Appointment.findById(payload.appointmentId);
-    if (!appointment) throw new ApiError(404, 'Appointment not found');
   }
 
+  // Check if a consultation record already exists for this patient
+  let existingCons = await Consultation.findOne({ patient: patient._id, isArchived: false });
+
+  if (existingCons) {
+    existingCons.doctor = doctor._id;
+    if (appointment) existingCons.appointment = appointment._id;
+    existingCons.status = 'in-progress';
+    Object.assign(existingCons, pickEditable(payload));
+
+    if (payload.clinicalExamination) {
+      existingCons.clinicalExamination = {
+        ...existingCons.clinicalExamination,
+        ...payload.clinicalExamination,
+      };
+    }
+
+    await existingCons.save();
+
+    // Ensure Visit record exists/updated
+    let visit = existingCons.visit ? await Visit.findById(existingCons.visit) : null;
+    if (!visit) {
+      const opNumber = await nextOpNumber();
+      visit = await Visit.create({
+        opNumber,
+        opDate: new Date(),
+        patient: patient._id,
+        doctor: doctor._id,
+        appointment: appointment ? appointment._id : null,
+        consultation: existingCons._id,
+        status: 'in-progress',
+      });
+      existingCons.visit = visit._id;
+      await existingCons.save();
+    } else {
+      visit.doctor = doctor._id;
+      visit.status = 'in-progress';
+      if (appointment) visit.appointment = appointment._id;
+      await visit.save();
+    }
+
+    await recordAudit({
+      user: actor,
+      action: 'update',
+      entity: 'consultation',
+      entityId: existingCons._id,
+      description: `Single consultation updated for patient ${patient.fullName || patient.patientId}`,
+    });
+
+    const fresh = await baseQuery(existingCons._id);
+    return sanitize(fresh);
+  }
+
+  // If no consultation record exists, initialize the single consultation record
   const opNumber = await nextOpNumber();
   const visit = await Visit.create({
     opNumber,
@@ -116,7 +188,7 @@ async function createConsultation(payload, actor) {
   });
 
   const consultation = await Consultation.create({
-    status: 'draft',
+    status: 'in-progress',
     patient: patient._id,
     visit: visit._id,
     appointment: appointment ? appointment._id : null,
@@ -136,7 +208,7 @@ async function createConsultation(payload, actor) {
     action: 'create',
     entity: 'consultation',
     entityId: consultation._id,
-    description: `Consultation created for ${patient.fullName || patient.patientId}`,
+    description: `Single consultation record initialized for ${patient.fullName || patient.patientId}`,
   });
 
   const fresh = await baseQuery(consultation._id);
@@ -156,7 +228,7 @@ async function getConsultation(id, actor) {
 async function reviseConsultation(id, payload, actor) {
   const consultation = await Consultation.findById(id);
   if (!consultation) throw new ApiError(404, 'Consultation not found');
-  assertEditAccess(consultation, actor);
+  await assertEditAccess(consultation, actor);
 
   if (consultation.status === 'completed' || consultation.status === 'cancelled') {
     throw new ApiError(400, 'Completed or cancelled consultations cannot be edited');
@@ -200,7 +272,12 @@ async function completeConsultation(id, actor) {
   consultation.completedAt = new Date();
 
   await consultation.save();
-  await Visit.findByIdAndUpdate(consultation.visit, { status: 'completed' });
+  if (consultation.visit) {
+    await Visit.findByIdAndUpdate(consultation.visit, { status: 'completed' });
+  }
+  if (consultation.appointment) {
+    await Appointment.findByIdAndUpdate(consultation.appointment, { status: 'completed' });
+  }
 
   await recordAudit({
     user: actor,

@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/appointment', authorize('admin', 'doctor', 'receptionist'), checkInController.checkInAppointment);
-router.post('/walk-in', authorize('admin', 'doctor', 'receptionist'), checkInController.checkInWalkIn);
+router.post('/walk-in', authorize('admin', 'receptionist'), checkInController.checkInWalkIn);
 router.get('/queue', authorize('admin', 'doctor', 'receptionist'), checkInController.getQueue);
 router.patch('/queue/:visitId/status', authorize('admin', 'doctor', 'receptionist'), checkInController.updateStatus);
 

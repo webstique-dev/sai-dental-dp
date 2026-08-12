@@ -28,6 +28,34 @@ const patientSchema = new mongoose.Schema(
       default: 'unknown',
     },
     permanentAlerts: [String],
+    // ── Dental OP Record Fields ──
+    manualAge: { type: Number, default: null },
+    medicalHistory: {
+      diabetesMellitus: { type: Boolean, default: false },
+      hypertension: { type: Boolean, default: false },
+      asthma: { type: Boolean, default: false },
+      allergy: { type: Boolean, default: false },
+      pregnancy: { type: Boolean, default: false },
+      cardiacDisease: { type: Boolean, default: false },
+      epilepsy: { type: Boolean, default: false },
+      thyroidDisorder: { type: Boolean, default: false },
+      hepatitis: { type: Boolean, default: false },
+      bleedingDisorder: { type: Boolean, default: false },
+      other: { type: String, default: '' },
+    },
+    currentMedications: { type: String, trim: true, default: '' },
+    vitals: {
+      bp: { type: String, default: '' },
+      rbs: { type: String, default: '' },
+    },
+    habits: {
+      smoking: { type: Boolean, default: false },
+      tobacco: { type: Boolean, default: false },
+      alcohol: { type: Boolean, default: false },
+      pan: { type: Boolean, default: false },
+    },
+    dentalHistory: { type: String, trim: true, default: '' },
+    // ── End Dental OP Record Fields ──
     isArchived: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
@@ -41,12 +69,14 @@ patientSchema.virtual('fullName').get(function () {
 });
 
 patientSchema.virtual('age').get(function () {
-  if (!this.dob) return null;
-  const now = new Date();
-  let age = now.getFullYear() - this.dob.getFullYear();
-  const m = now.getMonth() - this.dob.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < this.dob.getDate())) age -= 1;
-  return age;
+  if (this.dob) {
+    const now = new Date();
+    let age = now.getFullYear() - this.dob.getFullYear();
+    const m = now.getMonth() - this.dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < this.dob.getDate())) age -= 1;
+    return age;
+  }
+  return this.manualAge || null;
 });
 
 patientSchema.index({ firstName: 1, lastName: 1 });

@@ -40,7 +40,7 @@ export function LineChartCard({
         height={height}
         margin={{ top: 16, right: 16, bottom: 40, left: 56 }}
         xAxis={[{ scaleType: 'band', data: labels, tickLabelStyle: AXIS_TICK }]}
-        yAxis={[{ label: yLabel, tickLabelStyle: AXIS_TICK, labelStyle: AXIS_LABEL, valueFormatter: (v) => formatNumber(v) }]}
+        yAxis={[{ label: yLabel, tickLabelStyle: AXIS_TICK, valueFormatter: (v) => formatNumber(v) }]}
         series={series.map((s) => ({
           data: s.data,
           label: s.name,
@@ -49,7 +49,6 @@ export function LineChartCard({
           area: false,
           curve: 'linear',
         }))}
-        slotProps={{ legend: { labelStyle: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11 } } }}
         sx={LEGEND_SX}
         skipAnimation
       />
@@ -91,14 +90,13 @@ export function BarChartCard({
             ? [{ scaleType: 'band', data: labels, tickLabelStyle: AXIS_TICK, label: xLabel }]
             : [{ scaleType: 'band', data: labels, tickLabelStyle: AXIS_TICK, label: xLabel }]
         }
-        yAxis={[{ label: yLabel, tickLabelStyle: AXIS_TICK, labelStyle: AXIS_LABEL, valueFormatter: (v) => formatNumber(v) }]}
+        yAxis={[{ label: yLabel, tickLabelStyle: AXIS_TICK, valueFormatter: (v) => formatNumber(v) }]}
         series={series.map((s) => ({
           data: s.data,
           label: s.name,
           color: s.color || CHART_COLORS.forest,
           stack: stacked ? 'total' : undefined,
         }))}
-        slotProps={{ legend: { labelStyle: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11 } } }}
         sx={LEGEND_SX}
         skipAnimation
       />
@@ -146,7 +144,6 @@ export function PieChartCard({
           },
         ]}
         colors={CHART_PALETTE}
-        slotProps={{ legend: { labelStyle: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11 } } }}
         sx={LEGEND_SX}
         skipAnimation
       />

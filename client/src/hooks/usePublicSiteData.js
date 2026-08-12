@@ -18,8 +18,8 @@ export function usePublicSiteData() {
           publicService.listDoctors(),
         ])
         if (cancelled) return
-        if (svc.status === 'fulfilled') setServices(svc.value.services || [])
-        if (doc.status === 'fulfilled') setDoctors(doc.value.doctors || [])
+        if (svc.status === 'fulfilled') setServices(Array.isArray(svc.value) ? svc.value : (svc.value?.services || []))
+        if (doc.status === 'fulfilled') setDoctors(Array.isArray(doc.value) ? doc.value : (doc.value?.doctors || []))
         if (svc.status === 'rejected' && doc.status === 'rejected') {
           setError('We could not reach our booking system right now.')
         }

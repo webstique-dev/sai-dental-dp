@@ -5135,3 +5135,247 @@ textarea {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==========================================================================
+   Dental OP Record Form
+   ========================================================================== */
+
+.op-form-section {
+  border: 1px solid var(--color-hairline, rgba(58, 58, 56, 0.2));
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  background: #fafaf8;
+}
+
+.op-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-forest, #1A3C2B);
+  margin: 0 0 14px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-hairline, rgba(58, 58, 56, 0.2));
+}
+
+.op-section-title svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.op-section-title .op-section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-forest, #1A3C2B);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+
+/* OP field grid — 2-col on desktop, 1-col on mobile */
+.op-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.op-field-grid .op-field-full {
+  grid-column: 1 / -1;
+}
+
+.op-field-grid .op-field-third {
+  grid-column: span 1;
+}
+
+/* OP field label */
+.op-field-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-muted, rgba(26, 60, 43, 0.72));
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+
+/* OP form input */
+.op-form-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  border: 1px solid var(--color-hairline, rgba(58, 58, 56, 0.2));
+  border-radius: 6px;
+  background: #fff;
+  color: var(--color-text, #1A3C2B);
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+  outline: none;
+}
+
+.op-form-input:focus {
+  border-color: var(--color-forest, #1A3C2B);
+}
+
+.op-form-input::placeholder {
+  color: rgba(26, 60, 43, 0.35);
+}
+
+/* OP Textarea */
+.op-form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  border: 1px solid var(--color-hairline, rgba(58, 58, 56, 0.2));
+  border-radius: 6px;
+  background: #fff;
+  color: var(--color-text, #1A3C2B);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 70px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.op-form-textarea:focus {
+  border-color: var(--color-forest, #1A3C2B);
+}
+
+.op-form-textarea::placeholder {
+  color: rgba(26, 60, 43, 0.35);
+}
+
+/* OP Selectable Pill Grid */
+.op-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* OP Selectable Pill */
+.op-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid var(--color-hairline, rgba(58, 58, 56, 0.2));
+  border-radius: 20px;
+  background: #fff;
+  color: var(--color-text-muted, rgba(26, 60, 43, 0.72));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.op-pill:hover {
+  border-color: var(--color-forest-light, #285740);
+  background: rgba(26, 60, 43, 0.04);
+}
+
+.op-pill.active {
+  border-color: var(--color-forest, #1A3C2B);
+  background: var(--color-primary-soft, rgba(26, 60, 43, 0.08));
+  color: var(--color-forest, #1A3C2B);
+  font-weight: 600;
+}
+
+.op-pill .op-pill-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-hairline, rgba(58, 58, 56, 0.25));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.op-pill.active .op-pill-check {
+  background: var(--color-forest, #1A3C2B);
+  border-color: var(--color-forest, #1A3C2B);
+}
+
+.op-pill .op-pill-check svg {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.op-pill.active .op-pill-check svg {
+  opacity: 1;
+}
+
+/* OP Read-only field (for OP No. / Date) */
+.op-readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  letter-spacing: 0.03em;
+  border: 1px dashed var(--color-hairline, rgba(58, 58, 56, 0.3));
+  border-radius: 6px;
+  background: var(--color-paper-soft, #EFEFEA);
+  color: var(--color-forest, #1A3C2B);
+}
+
+/* OP readonly row */
+.op-readonly-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .op-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .op-form-section {
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+
+  .op-section-title {
+    font-size: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+
+  .op-pill {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .op-readonly-row {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .op-pill-grid {
+    gap: 6px;
+  }
+
+  .op-pill {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}

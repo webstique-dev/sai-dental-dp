@@ -8,7 +8,9 @@ const create = asyncHandler(async (req, res) => {
 
 const list = asyncHandler(async (req, res) => {
   const { search, limit, skip } = req.query;
+  const doctorId = req.user?.role === 'doctor' ? req.user._id : undefined;
   const result = await patientService.listPatients({
+    doctorId,
     search,
     limit: parseInt(limit, 10) || 25,
     skip: parseInt(skip, 10) || 0,

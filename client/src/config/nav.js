@@ -11,36 +11,36 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/portal/patients', label: 'Patients', roles: ['admin', 'doctor', 'receptionist'] },
       { to: '/portal/appointments', label: 'Appointments', roles: ['admin', 'doctor', 'receptionist'] },
-      { to: '/portal/check-in', label: 'Check-in', roles: ['admin', 'receptionist'] },
+      { to: '/portal/check-in', label: 'Check-in / Waiting List', roles: ['admin', 'doctor', 'receptionist'] },
     ],
   },
   {
     section: 'Clinical',
     items: [
-      { to: '/portal/consultations', label: 'Consultations', roles: ['doctor', 'admin'] },
-      { to: '/portal/tooth-chart', label: 'Tooth Chart', roles: ['admin', 'doctor'] },
-      { to: '/portal/diagnoses', label: 'Diagnoses', roles: ['doctor', 'admin'] },
-      { to: '/portal/treatment-plans', label: 'Treatment Plans', roles: ['doctor', 'admin'] },
-      { to: '/portal/treatment-records', label: 'Treatment Records', roles: ['doctor', 'admin', 'receptionist'] },
-      { to: '/portal/prescriptions', label: 'Prescriptions', roles: ['doctor', 'admin', 'pharmacy', 'receptionist'] },
-      { to: '/portal/investigations', label: 'Investigations', roles: ['doctor', 'admin', 'receptionist'] },
+      { to: '/portal/consultations', label: 'Consultation', roles: ['doctor', 'admin'] },
+      { to: '/portal/tooth-chart', label: 'Tooth Chart', roles: ['admin'] },
+      { to: '/portal/diagnoses', label: 'Diagnoses', roles: ['admin'] },
+      { to: '/portal/treatment-plans', label: 'Treatment Plans', roles: ['admin'] },
+      { to: '/portal/treatment-records', label: 'Treatment Records', roles: ['admin'] },
+      { to: '/portal/prescriptions', label: 'Prescriptions', roles: ['admin', 'pharmacy'] },
+      { to: '/portal/investigations', label: 'Investigations', roles: ['admin'] },
     ],
   },
   {
     section: 'Pharmacy',
     items: [
       { to: '/portal/pharmacy', label: 'Pharmacy', roles: ['pharmacy', 'admin'] },
-      { to: '/portal/inventory', label: 'Inventory', roles: ['pharmacy', 'admin', 'doctor', 'receptionist'] },
+      { to: '/portal/inventory', label: 'Inventory', roles: ['pharmacy', 'admin'] },
     ],
   },
   {
     section: 'Operations',
     items: [
-      { to: '/portal/billing', label: 'Billing', roles: ['admin', 'receptionist', 'doctor'] },
-      { to: '/portal/payments', label: 'Payments', roles: ['admin', 'receptionist', 'doctor'] },
-      { to: '/portal/services', label: 'Services', roles: ['admin', 'receptionist', 'doctor'] },
-      { to: '/portal/follow-ups', label: 'Follow-ups', roles: ['admin', 'doctor', 'receptionist'] },
-      { to: '/portal/reports', label: 'Reports', roles: ['admin', 'receptionist', 'doctor'] },
+      { to: '/portal/billing', label: 'Billing', roles: ['admin'] },
+      { to: '/portal/payments', label: 'Payments', roles: ['admin'] },
+      { to: '/portal/services', label: 'Services', roles: ['admin'] },
+      { to: '/portal/follow-ups', label: 'Follow-ups', roles: ['admin'] },
+      { to: '/portal/reports', label: 'Reports', roles: ['admin', 'receptionist'] },
     ],
   },
   {
@@ -57,8 +57,16 @@ export const NAV_SECTIONS = [
 export function navForRole(role) {
   return NAV_SECTIONS.map(({ section, items }) => ({
     section,
-    items: items.filter(
-      (item) => !item.roles || item.roles.includes(role),
-    ),
+    items: items
+      .filter((item) => !item.roles || item.roles.includes(role))
+      .map((item) => {
+        if (role === 'doctor') {
+          if (item.to === '/portal/patients') return { ...item, label: 'My Patients' }
+          if (item.to === '/portal/appointments') return { ...item, label: 'My Appointments' }
+          if (item.to === '/portal/check-in') return { ...item, label: 'Waiting List / Check-In' }
+          if (item.to === '/portal/consultations') return { ...item, label: 'Consultation' }
+        }
+        return item
+      }),
   })).filter((group) => group.items.length > 0)
 }

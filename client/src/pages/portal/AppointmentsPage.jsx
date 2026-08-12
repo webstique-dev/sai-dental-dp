@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Calendar, Clock, Plus, Search, Filter, Edit3, XCircle, CheckCircle2, UserCheck, RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, Clock, Plus, Search, Filter, Edit3, XCircle, CheckCircle2, UserCheck, RefreshCw, Play, Stethoscope } from 'lucide-react'
 import { listAppointments, createAppointment, updateAppointment, cancelAppointment } from '../../services/appointmentService'
 import { listPatients } from '../../services/patientService'
 import { checkInAppointment } from '../../services/checkInService'
+import { createConsultation, patientConsultations } from '../../services/consultationService'
 import { SkeletonTable } from '../../components/common/skeleton'
 import { Modal, ReusableFormModal } from '../../components/common/modal'
 import { useNotification } from '../../components/common/notification'
 import { publicService } from '../../services/publicService'
+import useAuth from '../../hooks/useAuth'
 
 const SOURCE_BADGES = {
   'walk-in': { label: 'Walk-in', color: '#0284c7', bg: '#e0f2fe' },
@@ -27,7 +30,12 @@ const STATUS_BADGES = {
 }
 
 export default function AppointmentsPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const notify = useNotification()
+  const isDoctor = user?.role === 'doctor'
+  const doctorIdVal = user?._id || user?.id || ''
+
   const [appointments, setAppointments] = useState([])
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(false)
@@ -36,7 +44,14 @@ export default function AppointmentsPage() {
 
   // Filters
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0])
-  const [filterDoctor, setFilterDoctor] = useState('')
+  const [filterDoctor, setFilterDoctor] = useState(isDoctor ? doctorIdVal : '')
+
+  useEffect(() => {
+    if (isDoctor && doctorIdVal) {
+      setFilterDoctor(doctorIdVal)
+      setBookingForm((prev) => ({ ...prev, doctorId: doctorIdVal }))
+    }
+  }, [isDoctor, doctorIdVal])
   const [filterStatus, setFilterStatus] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -45,12 +60,20 @@ export default function AppointmentsPage() {
   // Modal Book Appointment
   const [showBookModal, setShowBookModal] = useState(false)
   const [patientSearch, setPatientSearch] = useState('')
-  const [matchingPatients, setMatchingPatients] = useState([])
+  const [allPatientsList, setAllPatientsList] = useState([])
+  const [fetchingPatients, setFetchingPatients] = useState(false)
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState(null)
+  const [patientHistory, setPatientHistory] = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Doctor Autocomplete States
+  const [doctorSearch, setDoctorSearch] = useState('')
+  const [showDoctorDropdown, setShowDoctorDropdown] = useState(false)
+  const [selectedDoctorObj, setSelectedDoctorObj] = useState(null)
+
   const [bookingForm, setBookingForm] = useState({
     doctorId: '',
-    date: new Date().toISOString().split('T')[0],
-    time: '10:00 AM',
     type: 'New Consultation',
     source: 'phone',
     reason: '',
@@ -78,9 +101,10 @@ export default function AppointmentsPage() {
   const fetchDoctorsList = async () => {
     try {
       const res = await publicService.listDoctors()
-      setDoctors(res.doctors || [])
-      if (res.doctors && res.doctors.length > 0 && !bookingForm.doctorId) {
-        setBookingForm((prev) => ({ ...prev, doctorId: res.doctors[0]._id }))
+      const docs = Array.isArray(res) ? res : (res?.doctors || [])
+      setDoctors(docs)
+      if (docs.length > 0 && !bookingForm.doctorId) {
+        setBookingForm((prev) => ({ ...prev, doctorId: docs[0]._id || docs[0].id || '' }))
       }
     } catch {
       // ignore error
@@ -133,40 +157,108 @@ export default function AppointmentsPage() {
     setSourceFilter('')
   }
 
-  // Patient search in Book Modal
-  useEffect(() => {
-    if (patientSearch.trim().length >= 2) {
-      const timer = setTimeout(async () => {
-        try {
-          const res = await listPatients({ search: patientSearch.trim(), limit: 8 })
-          setMatchingPatients(res.items || [])
-        } catch {
-          // ignore
-        }
-      }, 300)
-      return () => clearTimeout(timer)
-    } else {
-      setMatchingPatients([])
+  // Fetch patients list for modal dropdown
+  const fetchPatientsForModal = async (query = '') => {
+    setFetchingPatients(true)
+    try {
+      const res = await listPatients({ search: query.trim(), limit: 50 })
+      setAllPatientsList(res.items || res.patients || [])
+    } catch {
+      setAllPatientsList([])
+    } finally {
+      setFetchingPatients(false)
     }
-  }, [patientSearch])
+  }
+
+  useEffect(() => {
+    if (!showBookModal) return
+    const timer = setTimeout(() => {
+      fetchPatientsForModal(patientSearch)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [patientSearch, showBookModal])
 
   const openBookModal = () => {
     setSelectedPatient(null)
     setPatientSearch('')
+    setAllPatientsList([])
+    setShowPatientDropdown(false)
+    setShowDoctorDropdown(false)
+    setPatientHistory([])
+
+    const initialDoc = doctors.length > 0 ? doctors[0] : null
+    const initialDocName = initialDoc ? (initialDoc.name || `Dr. ${initialDoc.firstName || ''} ${initialDoc.lastName || ''}`.trim()) : ''
+
+    setSelectedDoctorObj(initialDoc)
+    setDoctorSearch(initialDocName)
     setBookingForm({
-      doctorId: doctors.length > 0 ? doctors[0]._id : '',
-      date: filterDate || new Date().toISOString().split('T')[0],
-      time: '10:00 AM',
+      doctorId: initialDoc ? (initialDoc._id || initialDoc.id) : '',
       type: 'New Consultation',
       source: 'phone',
       reason: '',
       notes: '',
     })
     setShowBookModal(true)
+
+    // Pre-fetch patients so dropdown has items immediately on click
+    fetchPatientsForModal('')
+  }
+
+  const handleSelectDoctor = (doc) => {
+    const docName = doc.name || `Dr. ${doc.firstName || ''} ${doc.lastName || ''}`.trim()
+    setSelectedDoctorObj(doc)
+    setDoctorSearch(docName)
+    setBookingForm((prev) => ({ ...prev, doctorId: doc._id || doc.id }))
+    setShowDoctorDropdown(false)
+  }
+
+  const handleSelectPatient = async (p) => {
+    setSelectedPatient(p)
+    setShowPatientDropdown(false)
+    setPatientSearch('')
+    setLoadingHistory(true)
+    try {
+      const patId = p._id || p.id
+      const res = await patientConsultations(patId)
+      const items = res.items || res.consultations || []
+      setPatientHistory(items)
+
+      if (items.length > 0) {
+        const last = items[0]
+        const lastDocId = last.doctor?._id || last.doctor?.id || (typeof last.doctor === 'string' ? last.doctor : null)
+        const matchedDoc = doctors.find((d) => (d._id || d.id) === lastDocId)
+
+        if (matchedDoc) {
+          handleSelectDoctor(matchedDoc)
+        }
+
+        setBookingForm((prev) => ({
+          ...prev,
+          type: 'Follow-up',
+          source: 'existing',
+        }))
+      } else {
+        setBookingForm((prev) => ({
+          ...prev,
+          type: 'New Consultation',
+          source: 'phone',
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to load patient history:', err)
+      setPatientHistory([])
+      setBookingForm((prev) => ({
+        ...prev,
+        type: 'New Consultation',
+        source: 'phone',
+      }))
+    } finally {
+      setLoadingHistory(false)
+    }
   }
 
   const handleBookSubmit = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     if (!selectedPatient) {
       setError('Please search and select a patient first')
       notify.warning('Please search and select a patient first')
@@ -181,19 +273,22 @@ export default function AppointmentsPage() {
     setBookingSubmitting(true)
     setError('')
 
+    const todayStr = new Date().toISOString().split('T')[0]
+    const autoTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+
     try {
       await createAppointment({
-        patient: selectedPatient._id,
+        patient: selectedPatient._id || selectedPatient.id,
         doctor: bookingForm.doctorId,
-        date: bookingForm.date,
-        time: bookingForm.time,
+        date: todayStr,
+        time: autoTimeStr,
         type: bookingForm.type,
         source: bookingForm.source,
         reason: bookingForm.reason.trim(),
-        notes: bookingForm.notes.trim(),
+        notes: bookingForm.notes?.trim() || '',
       })
 
-      notify.success(`Appointment booked successfully for ${selectedPatient.firstName} ${selectedPatient.lastName}!`)
+      notify.success(`Appointment booked for ${selectedPatient.firstName} ${selectedPatient.lastName} today at ${autoTimeStr}!`)
       setShowBookModal(false)
       fetchAppointmentsList()
     } catch (err) {
@@ -259,9 +354,16 @@ export default function AppointmentsPage() {
 
   const handleCheckInNow = async (apt) => {
     try {
-      const res = await checkInAppointment({ appointmentId: apt._id })
+      const res = await checkInAppointment({ appointmentId: apt._id || apt.id })
       notify.success(`Patient checked in! Token: ${res.token}`)
       fetchAppointmentsList()
+
+      const patId = apt.patient?._id || apt.patient?.id || apt.patient
+      if (patId) {
+        const consRes = await createConsultation({ patientId: patId, appointmentId: apt._id || apt.id })
+        const cons = consRes.consultation
+        navigate(`/portal/consultations/${cons._id || cons.id}`)
+      }
     } catch (err) {
       const errMsg = err.message || 'Check-in failed'
       setError(errMsg)
@@ -273,12 +375,14 @@ export default function AppointmentsPage() {
     <div className="portal-page">
       <div className="portal-heading flex justify-between items-center flex-wrap gap-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1>Appointment Management</h1>
-          <p>Schedule, view, assign doctor & time slots, and check in patients</p>
+          <h1>{isDoctor ? 'My Appointments' : 'Appointment Management'}</h1>
+          <p>{isDoctor ? 'View your assigned appointments and check in patients' : 'Schedule, view, assign doctor & time slots, and check in patients'}</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openBookModal}>
-          <Plus size={16} /> Book Appointment
-        </button>
+        {!isDoctor && (
+          <button type="button" className="btn btn-primary" onClick={openBookModal}>
+            <Plus size={16} /> Book Appointment
+          </button>
+        )}
       </div>
 
       {notice && (
@@ -325,24 +429,26 @@ export default function AppointmentsPage() {
             />
           </div>
 
-          <div>
-            <label className="field-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
-              Filter Doctor
-            </label>
-            <select
-              className="form-control"
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              value={filterDoctor}
-              onChange={(e) => setFilterDoctor(e.target.value)}
-            >
-              <option value="">All Doctors</option>
-              {doctors.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.name} ({d.specialization || 'Doctor'})
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isDoctor && (
+            <div>
+              <label className="field-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+                Filter Doctor
+              </label>
+              <select
+                className="form-control"
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                value={filterDoctor}
+                onChange={(e) => setFilterDoctor(e.target.value)}
+              >
+                <option value="">All Doctors</option>
+                {doctors.map((d, idx) => (
+                  <option key={d._id || d.id || idx} value={d._id || d.id}>
+                    {d.name} ({d.specialization || 'Doctor'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="field-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
@@ -479,15 +585,17 @@ export default function AppointmentsPage() {
                               <UserCheck size={12} /> Check-in
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-ghost"
-                            onClick={() => openEditModal(apt)}
-                            title="Edit appointment"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          {apt.status !== 'cancelled' && (
+                          {!isDoctor && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-ghost"
+                              onClick={() => openEditModal(apt)}
+                              title="Edit appointment"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                          )}
+                          {!isDoctor && apt.status !== 'cancelled' && (
                             <button
                               type="button"
                               className="btn btn-sm btn-ghost"
@@ -518,94 +626,230 @@ export default function AppointmentsPage() {
         submitText="Confirm Appointment"
         submitLoadingText="Booking..."
         submitting={bookingSubmitting}
-        maxWidth="600px"
+        maxWidth="640px"
       >
-        {/* Step 1: Select Patient */}
-        <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-            1. Search & Select Patient *
+        {/* Step 1: Searchable Patient Autocomplete Dropdown */}
+        <div style={{ marginBottom: '16px', position: 'relative' }}>
+          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#0f172a' }}>
+            Search & Select Patient *
           </label>
           {selectedPatient ? (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e0f2fe', padding: '10px 14px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0f9ff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
               <div>
-                <strong style={{ color: '#0369a1' }}>{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.patientId}) - {selectedPatient.phone || 'No phone'}
+                <strong style={{ color: '#0369a1', fontSize: '14px' }}>{selectedPatient.firstName} {selectedPatient.lastName}</strong>
+                <span className="badge badge-subtle" style={{ marginLeft: '8px', fontSize: '11px', background: '#e0f2fe', color: '#0369a1' }}>{selectedPatient.patientId || 'PAT'}</span>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
+                  📞 {selectedPatient.phone || 'No phone registered'} | Gender: {selectedPatient.gender || '—'}
+                </div>
               </div>
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedPatient(null)}>
-                Change
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                style={{ color: '#0369a1', fontWeight: 600 }}
+                onClick={() => {
+                  setSelectedPatient(null)
+                  setPatientHistory([])
+                  setPatientSearch('')
+                  setShowPatientDropdown(true)
+                  fetchPatientsForModal('')
+                }}
+              >
+                Change Patient
               </button>
             </div>
           ) : (
-            <div>
-              <input
-                type="text"
-                className="form-control"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                placeholder="Type patient name, phone, or PAT-..."
-                value={patientSearch}
-                onChange={(e) => setPatientSearch(e.target.value)}
-              />
-              {matchingPatients.length > 0 && (
-                <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '6px', background: '#fff', maxHeight: '160px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-                  {matchingPatients.map((p) => (
-                    <div
-                      key={p._id}
-                      style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                      onClick={() => {
-                        setSelectedPatient(p)
-                        setMatchingPatients([])
-                      }}
-                    >
-                      <strong>{p.firstName} {p.lastName}</strong> ({p.patientId}) - {p.phone || 'No phone'}
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  placeholder="Click to view all patients or type name, ID, phone..."
+                  value={patientSearch}
+                  onFocus={() => {
+                    setShowPatientDropdown(true)
+                    if (allPatientsList.length === 0) fetchPatientsForModal('')
+                  }}
+                  onChange={(e) => {
+                    setPatientSearch(e.target.value)
+                    setShowPatientDropdown(true)
+                  }}
+                />
+                <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+
+              {/* Patient Dropdown Layer */}
+              {showPatientDropdown && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    background: '#fff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+                    marginTop: '4px',
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Available Patients</span>
+                    <span>{allPatientsList.length} results</span>
+                  </div>
+                  {fetchingPatients ? (
+                    <div style={{ padding: '14px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+                      Loading patient list...
                     </div>
-                  ))}
+                  ) : allPatientsList.length === 0 ? (
+                    <div style={{ padding: '14px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+                      No patients found matching "{patientSearch}"
+                    </div>
+                  ) : (
+                    allPatientsList.map((p, idx) => (
+                      <div
+                        key={p._id || p.id || idx}
+                        style={{
+                          padding: '10px 14px',
+                          borderBottom: '1px solid #f1f5f9',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justify: 'space-between',
+                          alignItems: 'center',
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f9ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
+                        onClick={() => handleSelectPatient(p)}
+                      >
+                        <div>
+                          <strong style={{ color: '#0f172a', fontSize: '13px' }}>{p.firstName} {p.lastName}</strong>
+                          <span style={{ fontSize: '11px', color: '#0284c7', marginLeft: '6px', fontWeight: 600 }}>({p.patientId || 'PAT'})</span>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>📞 {p.phone || 'No phone'}</div>
+                        </div>
+                        <span style={{ fontSize: '11px', color: '#0369a1', fontWeight: 600 }}>Select →</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Step 2: Appointment Details */}
-        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-          <div>
+        {/* Step 2: Patient History Summary (If Patient Has Previous Records) */}
+        {selectedPatient && loadingHistory && (
+          <div style={{ padding: '10px', background: '#f1f5f9', borderRadius: '6px', marginBottom: '14px', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
+            Checking patient history...
+          </div>
+        )}
+
+        {selectedPatient && !loadingHistory && patientHistory.length > 0 && (
+          <div style={{ marginBottom: '16px', background: '#f0f9ff', padding: '12px 14px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#0369a1', marginBottom: '6px' }}>
+              <Stethoscope size={15} /> Previous Records Found ({patientHistory.length} visit(s))
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '12px', color: '#1e293b' }}>
+              <div>
+                <strong>Last Visit:</strong> {new Date(patientHistory[0].createdAt || patientHistory[0].visitDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
+              <div>
+                <strong>Attending Doctor:</strong> Dr. {patientHistory[0].doctor?.name || patientHistory[0].doctor?.firstName || 'Assigned Doctor'}
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong>Diagnosis / History:</strong> {patientHistory[0].clinicalFindings?.primaryDiagnosis || patientHistory[0].clinicalFindings || 'Routine checkup record'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Appointment Details Form */}
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          {/* Searchable Doctor Autocomplete */}
+          <div style={{ position: 'relative' }}>
             <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assigned Doctor *</label>
-            <select
-              className="form-control"
-              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              value={bookingForm.doctorId}
-              onChange={(e) => setBookingForm({ ...bookingForm, doctorId: e.target.value })}
-            >
-              {doctors.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.name} ({d.specialization || 'Doctor'})
-                </option>
-              ))}
-            </select>
-          </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className="form-control"
+                style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                placeholder="Search doctor or specialization..."
+                value={doctorSearch}
+                onFocus={() => setShowDoctorDropdown(true)}
+                onChange={(e) => {
+                  setDoctorSearch(e.target.value)
+                  setShowDoctorDropdown(true)
+                }}
+              />
+              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+            </div>
 
-          <div>
-            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Appointment Date *</label>
-            <input
-              type="date"
-              required
-              className="form-control"
-              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              value={bookingForm.date}
-              onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-          <div>
-            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Time Slot</label>
-            <input
-              type="text"
-              className="form-control"
-              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-              value={bookingForm.time}
-              onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
-              placeholder="e.g. 10:30 AM"
-            />
+            {showDoctorDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 99,
+                  background: '#fff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+                  marginTop: '4px',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                }}
+              >
+                {doctors.filter((d) => {
+                  if (!doctorSearch.trim()) return true
+                  const q = doctorSearch.toLowerCase().trim()
+                  const dName = (d.name || `${d.firstName || ''} ${d.lastName || ''}`).toLowerCase()
+                  const dSpec = (d.specialization || 'doctor').toLowerCase()
+                  return dName.includes(q) || dSpec.includes(q)
+                }).length === 0 ? (
+                  <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+                    No doctors found matching "{doctorSearch}"
+                  </div>
+                ) : (
+                  doctors
+                    .filter((d) => {
+                      if (!doctorSearch.trim()) return true
+                      const q = doctorSearch.toLowerCase().trim()
+                      const dName = (d.name || `${d.firstName || ''} ${d.lastName || ''}`).toLowerCase()
+                      const dSpec = (d.specialization || 'doctor').toLowerCase()
+                      return dName.includes(q) || dSpec.includes(q)
+                    })
+                    .map((d, idx) => {
+                      const dName = d.name || `Dr. ${d.firstName || ''} ${d.lastName || ''}`.trim()
+                      return (
+                        <div
+                          key={d._id || d.id || idx}
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid #f1f5f9',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justify: 'space-between',
+                            alignItems: 'center',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
+                          onClick={() => handleSelectDoctor(d)}
+                        >
+                          <strong style={{ fontSize: '13px', color: '#0f172a' }}>{dName}</strong>
+                          <span style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                            {d.specialization || 'General Dentistry'}
+                          </span>
+                        </div>
+                      )
+                    })
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -624,7 +868,7 @@ export default function AppointmentsPage() {
           </div>
 
           <div>
-            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Type</label>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Visit Type</label>
             <select
               className="form-control"
               style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
@@ -640,7 +884,7 @@ export default function AppointmentsPage() {
           </div>
         </div>
 
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: '12px' }}>
           <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Chief Complaint / Reason</label>
           <input
             type="text"
@@ -648,8 +892,13 @@ export default function AppointmentsPage() {
             style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
             value={bookingForm.reason}
             onChange={(e) => setBookingForm({ ...bookingForm, reason: e.target.value })}
-            placeholder="e.g. Tooth sensitivity, lower molar pain"
+            placeholder="e.g. Tooth sensitivity, lower molar pain, follow-up root canal"
           />
+        </div>
+
+        {/* Automatic Today's Date & Current Time Notice */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b' }}>
+          <Clock size={14} color="#0284c7" /> Date & time automatically captured as <strong>Today ({new Date().toLocaleDateString('en-IN')})</strong> at current time.
         </div>
       </ReusableFormModal>
 
@@ -671,8 +920,8 @@ export default function AppointmentsPage() {
                   value={editForm.doctorId}
                   onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
                 >
-                  {doctors.map((d) => (
-                    <option key={d._id} value={d._id}>
+                  {doctors.map((d, idx) => (
+                    <option key={d._id || d.id || idx} value={d._id || d.id}>
                       {d.name}
                     </option>
                   ))}

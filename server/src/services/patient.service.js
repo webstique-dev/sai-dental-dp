@@ -21,6 +21,13 @@ function normalize(input) {
       : input.permanentAlerts
         ? [input.permanentAlerts]
         : [],
+    // Dental OP Record fields
+    manualAge: input.manualAge != null ? Number(input.manualAge) || null : null,
+    medicalHistory: input.medicalHistory || undefined,
+    currentMedications: input.currentMedications || '',
+    vitals: input.vitals || undefined,
+    habits: input.habits || undefined,
+    dentalHistory: input.dentalHistory || '',
   };
 }
 
@@ -34,8 +41,29 @@ async function createPatient(payload) {
   return patient;
 }
 
-async function listPatients({ search, limit = 25, skip = 0 } = {}) {
+async function listPatients({ doctorId, search, limit = 25, skip = 0 } = {}) {
   const filter = { isArchived: false, isDeleted: { $ne: true } };
+
+  if (doctorId) {
+    const { Appointment } = require('../models/Appointment');
+    const { Consultation } = require('../models/Consultation');
+    const { Visit } = require('../models/Visit');
+
+    const [apptPats, consultPats, visitPats] = await Promise.all([
+      Appointment.distinct('patient', { doctor: doctorId, isDeleted: { $ne: true } }),
+      Consultation.distinct('patient', { doctor: doctorId, isDeleted: { $ne: true } }),
+      Visit.distinct('patient', { doctor: doctorId, isDeleted: { $ne: true } }),
+    ]);
+
+    const assignedSet = new Set([
+      ...apptPats.map((id) => id?.toString()),
+      ...consultPats.map((id) => id?.toString()),
+      ...visitPats.map((id) => id?.toString()),
+    ].filter(Boolean));
+
+    filter._id = { $in: Array.from(assignedSet) };
+  }
+
   if (search) {
     const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [

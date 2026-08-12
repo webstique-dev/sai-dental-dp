@@ -5,19 +5,19 @@ const prescriptionController = require('../controllers/prescription.controllers'
 // POST /api/prescriptions etc.
 const mainRouter = express.Router({ mergeParams: true });
 mainRouter.post('/prescriptions', protect, authorize('admin', 'doctor'), prescriptionController.create);
-mainRouter.get('/prescriptions/:id', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.get);
+mainRouter.get('/prescriptions/:id', protect, authorize('admin', 'doctor', 'pharmacy'), prescriptionController.get);
 mainRouter.patch('/prescriptions/:id', protect, authorize('admin', 'doctor'), prescriptionController.update);
 mainRouter.post('/prescriptions/:id/issue', protect, authorize('admin', 'doctor'), prescriptionController.issue);
 mainRouter.delete('/prescriptions/:id', protect, authorize('admin', 'doctor'), prescriptionController.remove);
 mainRouter.post('/prescriptions/:id/restore', protect, authorize('admin'), prescriptionController.restore);
-mainRouter.get('/prescriptions/:id/print', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.print);
+mainRouter.get('/prescriptions/:id/print', protect, authorize('admin', 'doctor', 'pharmacy'), prescriptionController.print);
 
 // GET /api/consultations/:consultationId/prescriptions
 const consultationRouter = express.Router({ mergeParams: true });
-consultationRouter.get('/', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.listByConsultation);
+consultationRouter.get('/', protect, authorize('admin', 'doctor', 'pharmacy'), prescriptionController.listByConsultation);
 
 // GET /api/patients/:patientId/prescriptions
 const patientRouter = express.Router({ mergeParams: true });
-patientRouter.get('/', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.listByPatient);
+patientRouter.get('/', protect, authorize('admin', 'doctor', 'pharmacy'), prescriptionController.listByPatient);
 
 module.exports = { mainRouter, consultationRouter, patientRouter };

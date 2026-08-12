@@ -135,7 +135,7 @@ export default function App() {
               <Route
                 path="prescriptions"
                 element={
-                  <ProtectedRoute roles={['doctor', 'admin', 'pharmacy', 'receptionist']}>
+                  <ProtectedRoute roles={['doctor', 'admin', 'pharmacy']}>
                     <Suspense fallback={<PageFallback />}>
                       <PrescriptionsPage />
                     </Suspense>
@@ -145,7 +145,7 @@ export default function App() {
               <Route
                 path="prescriptions/:id/print"
                 element={
-                  <ProtectedRoute roles={['doctor', 'admin', 'pharmacy', 'receptionist']}>
+                  <ProtectedRoute roles={['doctor', 'admin', 'pharmacy']}>
                     <Suspense fallback={<PageFallback />}>
                       <PrescriptionPrintPage />
                     </Suspense>
@@ -155,7 +155,7 @@ export default function App() {
               <Route
                 path="investigations"
                 element={
-                  <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
+                  <ProtectedRoute roles={['doctor', 'admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <InvestigationsPage />
                     </Suspense>
@@ -165,7 +165,7 @@ export default function App() {
               <Route
                 path="treatment-records"
                 element={
-                  <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
+                  <ProtectedRoute roles={['doctor', 'admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <TreatmentRecordsPage />
                     </Suspense>
@@ -175,7 +175,7 @@ export default function App() {
               <Route
                 path="follow-ups"
                 element={
-                  <ProtectedRoute roles={['doctor', 'admin', 'receptionist']}>
+                  <ProtectedRoute roles={['doctor', 'admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <FollowUpsPage />
                     </Suspense>
@@ -185,7 +185,7 @@ export default function App() {
               <Route
                 path="billing"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <BillingPage />
                     </Suspense>
@@ -195,7 +195,7 @@ export default function App() {
               <Route
                 path="billing/:id/print"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <InvoicePrintPage />
                     </Suspense>
@@ -205,7 +205,7 @@ export default function App() {
               <Route
                 path="payments"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <PaymentsPage />
                     </Suspense>
@@ -215,7 +215,7 @@ export default function App() {
               <Route
                 path="payments/:id/receipt"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <ReceiptPrintPage />
                     </Suspense>
@@ -225,7 +225,7 @@ export default function App() {
               <Route
                 path="services"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin']}>
                     <Suspense fallback={<PageFallback />}>
                       <ServicesPage />
                     </Suspense>
@@ -245,7 +245,7 @@ export default function App() {
               <Route
                 path="inventory"
                 element={
-                  <ProtectedRoute roles={['admin', 'pharmacy', 'doctor', 'receptionist']}>
+                  <ProtectedRoute roles={['admin', 'pharmacy']}>
                     <Suspense fallback={<PageFallback />}>
                       <InventoryPage />
                     </Suspense>
@@ -275,7 +275,7 @@ export default function App() {
               <Route
                 path="check-in"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist']}>
+                  <ProtectedRoute roles={['admin', 'doctor', 'receptionist']}>
                     <Suspense fallback={<PageFallback />}>
                       <CheckInPage />
                     </Suspense>
@@ -285,7 +285,7 @@ export default function App() {
               <Route
                 path="reports"
                 element={
-                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute roles={['admin', 'doctor', 'receptionist']}>
                     <Suspense fallback={<PageFallback />}>
                       <ReportsPage />
                     </Suspense>
