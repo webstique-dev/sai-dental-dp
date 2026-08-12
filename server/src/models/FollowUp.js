@@ -51,6 +51,9 @@ const followUpSchema = new mongoose.Schema(
     cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, trim: true, default: '' },
     isArchived: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

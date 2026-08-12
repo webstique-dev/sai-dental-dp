@@ -36,4 +36,14 @@ const listByConsultation = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, prescriptions });
 });
 
-module.exports = { create, get, update, issue, print, listByPatient, listByConsultation };
+const remove = asyncHandler(async (req, res) => {
+  const result = await prescriptionService.remove(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const prescription = await prescriptionService.restore(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Prescription restored successfully.', prescription });
+});
+
+module.exports = { create, get, update, issue, print, listByPatient, listByConsultation, remove, restore };

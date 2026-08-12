@@ -7,6 +7,8 @@ const mainRouter = express.Router({ mergeParams: true });
 mainRouter.post('/treatment-plans', protect, authorize('admin', 'doctor'), treatmentPlanController.create);
 mainRouter.get('/treatment-plans/:id', protect, authorize('admin', 'doctor', 'receptionist'), treatmentPlanController.get);
 mainRouter.patch('/treatment-plans/:id', protect, authorize('admin', 'doctor'), treatmentPlanController.update);
+mainRouter.delete('/treatment-plans/:id', protect, authorize('admin', 'doctor'), treatmentPlanController.remove);
+mainRouter.post('/treatment-plans/:id/restore', protect, authorize('admin'), treatmentPlanController.restore);
 mainRouter.post('/treatment-plans/:id/items', protect, authorize('admin', 'doctor'), treatmentPlanController.addItem);
 mainRouter.patch('/treatment-plans/:id/items/:itemId', protect, authorize('admin', 'doctor'), treatmentPlanController.updateItem);
 mainRouter.delete('/treatment-plans/:id/items/:itemId', protect, authorize('admin', 'doctor'), treatmentPlanController.removeItem);

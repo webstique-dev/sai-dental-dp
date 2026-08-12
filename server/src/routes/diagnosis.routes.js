@@ -7,6 +7,8 @@ const createRouter = express.Router({ mergeParams: true });
 createRouter.post('/diagnoses', protect, authorize('admin', 'doctor'), diagnosisController.create);
 createRouter.get('/diagnoses/:id', protect, authorize('admin', 'doctor', 'receptionist'), diagnosisController.get);
 createRouter.patch('/diagnoses/:id', protect, authorize('admin', 'doctor'), diagnosisController.update);
+createRouter.delete('/diagnoses/:id', protect, authorize('admin', 'doctor'), diagnosisController.remove);
+createRouter.post('/diagnoses/:id/restore', protect, authorize('admin'), diagnosisController.restore);
 
 // GET /api/consultations/:consultationId/diagnoses
 const consultationRouter = express.Router({ mergeParams: true });

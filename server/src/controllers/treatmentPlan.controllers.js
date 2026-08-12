@@ -46,4 +46,14 @@ const decline = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Treatment plan declined', plan });
 });
 
-module.exports = { create, listByPatient, get, update, addItem, updateItem, removeItem, approve, decline };
+const remove = asyncHandler(async (req, res) => {
+  const result = await treatmentPlanService.removePlan(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const plan = await treatmentPlanService.restorePlan(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Treatment plan restored successfully.', plan });
+});
+
+module.exports = { create, listByPatient, get, update, addItem, updateItem, removeItem, approve, decline, remove, restore };

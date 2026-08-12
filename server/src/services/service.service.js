@@ -64,7 +64,7 @@ async function create(payload, actor) {
 }
 
 async function list({ q, category, activeOnly } = {}) {
-  const query = {};
+  const query = { isDeleted: { $ne: true } };
   if (category) query.category = category;
   if (activeOnly) query.isActive = true;
   if (q) {
@@ -76,13 +76,13 @@ async function list({ q, category, activeOnly } = {}) {
 }
 
 async function get(id, actor) {
-  const doc = await Service.findById(id);
+  const doc = await Service.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!doc) throw new ApiError(404, 'Service not found');
   return sanitize(doc);
 }
 
 async function update(id, payload, actor) {
-  const doc = await Service.findById(id);
+  const doc = await Service.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!doc) throw new ApiError(404, 'Service not found');
 
   if (payload.name !== undefined) {
@@ -93,7 +93,7 @@ async function update(id, payload, actor) {
   if (payload.code !== undefined) {
     const code = String(payload.code).trim().toUpperCase();
     if (!code) throw new ApiError(400, 'Service code is required.');
-    const dup = await Service.findOne({ code, _id: { $ne: doc._id } });
+    const dup = await Service.findOne({ code, _id: { $ne: doc._id }, isDeleted: { $ne: true } });
     if (dup) throw new ApiError(409, 'A service with this code already exists.');
     doc.code = code;
   }
@@ -127,4 +127,36 @@ async function update(id, payload, actor) {
   return sanitize(doc);
 }
 
-module.exports = { create, list, get, update };
+async function removeService(id, actor) {
+  const doc = await Service.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Service not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'service',
+    entityId: doc._id,
+    description: `Service "${doc.name}" (${doc.code}) soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreService(id, actor) {
+  const doc = await Service.findById(id);
+  if (!doc) throw new ApiError(404, 'Service not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(doc);
+}
+
+module.exports = { create, list, get, update, removeService, restoreService };

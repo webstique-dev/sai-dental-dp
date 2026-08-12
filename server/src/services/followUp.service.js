@@ -76,7 +76,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  FollowUp.findOne({ _id: id, isArchived: false })
+  FollowUp.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone dob')
     .populate('doctor', 'name')
     .populate('completedBy', 'name')
@@ -338,9 +338,41 @@ async function schedule(id, payload, actor) {
   return sanitize(await baseQuery(id));
 }
 
+async function removeFollowUp(id, actor) {
+  const doc = await FollowUp.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Follow-up not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'follow-up',
+    entityId: doc._id,
+    description: `Follow-up ${doc.followUpNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreFollowUp(id, actor) {
+  const doc = await FollowUp.findById(id);
+  if (!doc) throw new ApiError(404, 'Follow-up not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
 async function listByPatient(patientId, actor) {
   await assertPatient(patientId);
-  const docs = await FollowUp.find({ patient: patientId, isArchived: false })
+  const docs = await FollowUp.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ followUpDate: -1 })
     .populate('doctor', 'name')
     .populate('completedBy', 'name')
@@ -355,7 +387,7 @@ async function listByPatient(patientId, actor) {
 async function listByConsultation(consultationId, actor) {
   const consultation = await Consultation.findById(consultationId);
   if (!consultation) throw new ApiError(404, 'Consultation not found');
-  const docs = await FollowUp.find({ consultation: consultationId, isArchived: false })
+  const docs = await FollowUp.find({ consultation: consultationId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ followUpDate: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -366,7 +398,7 @@ async function listByConsultation(consultationId, actor) {
 }
 
 async function listUpcoming({ doctorId, limit = 100 } = {}, actor) {
-  const filter = { isArchived: false, status: { $in: ['planned', 'scheduled', 'rescheduled'] }, followUpDate: { $gte: new Date() } };
+  const filter = { isArchived: false, isDeleted: { $ne: true }, status: { $in: ['planned', 'scheduled', 'rescheduled'] }, followUpDate: { $gte: new Date() } };
   if (doctorId) {
     const doctor = await User.findById(doctorId);
     if (doctor && doctor.role === 'doctor') filter.doctor = doctorId;
@@ -390,6 +422,8 @@ module.exports = {
   complete,
   cancel,
   schedule,
+  removeFollowUp,
+  restoreFollowUp,
   listByPatient,
   listByConsultation,
   listUpcoming,

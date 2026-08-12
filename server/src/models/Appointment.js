@@ -26,6 +26,9 @@ const appointmentSchema = new mongoose.Schema(
     source: { type: String, enum: APPOINTMENT_SOURCES, default: 'walk-in' },
     status: { type: String, enum: APPOINTMENT_STATUSES, default: 'scheduled', index: true },
     token: { type: String, trim: true },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

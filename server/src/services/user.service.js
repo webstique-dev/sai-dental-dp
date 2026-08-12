@@ -3,7 +3,7 @@ const { recordAudit } = require('../utils/audit');
 const ApiError = require('../utils/ApiError');
 
 async function listUsers({ role, q, includeInactive = 'true' } = {}) {
-  const query = {};
+  const query = { isDeleted: { $ne: true } };
   if (role && ROLES.includes(role)) {
     query.role = role;
   }
@@ -20,7 +20,7 @@ async function listUsers({ role, q, includeInactive = 'true' } = {}) {
 }
 
 async function getUser(id) {
-  const user = await User.findById(id);
+  const user = await User.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!user) throw new ApiError(404, 'User account not found');
   return user.toSafeJSON();
 }
@@ -30,7 +30,7 @@ async function createUser(payload, actor) {
     throw new ApiError(400, 'Name, email, and password are required');
   }
   const email = String(payload.email).trim().toLowerCase();
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email, isDeleted: { $ne: true } });
   if (existing) throw new ApiError(409, 'An account with this email already exists');
 
   const role = payload.role && ROLES.includes(payload.role) ? payload.role : 'receptionist';
@@ -58,7 +58,7 @@ async function createUser(payload, actor) {
 }
 
 async function updateUser(id, payload, actor) {
-  const user = await User.findById(id);
+  const user = await User.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!user) throw new ApiError(404, 'User account not found');
 
   if (payload.name !== undefined) user.name = String(payload.name).trim();
@@ -87,7 +87,7 @@ async function updateUser(id, payload, actor) {
 }
 
 async function toggleActive(id, actor) {
-  const user = await User.findById(id);
+  const user = await User.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!user) throw new ApiError(404, 'User account not found');
 
   // Prevent self-deactivation by admin
@@ -114,7 +114,7 @@ async function resetPassword(id, newPassword, actor) {
   if (!newPassword || newPassword.length < 6) {
     throw new ApiError(400, 'New password must be at least 6 characters long');
   }
-  const user = await User.findById(id);
+  const user = await User.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!user) throw new ApiError(404, 'User account not found');
 
   user.password = newPassword;
@@ -132,6 +132,44 @@ async function resetPassword(id, newPassword, actor) {
   return user.toSafeJSON();
 }
 
+async function deleteUser(id, actor) {
+  const user = await User.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!user) throw new ApiError(404, 'User account not found');
+
+  if (String(user._id) === String(actor._id)) {
+    throw new ApiError(400, 'You cannot delete your own admin account');
+  }
+
+  user.isDeleted = true;
+  user.deletedAt = new Date();
+  if (actor && actor._id) user.deletedBy = actor._id;
+  user.isActive = false;
+  await user.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'user',
+    entityId: user._id,
+    description: `Staff account ${user.name} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreUser(id, actor) {
+  const user = await User.findById(id);
+  if (!user) throw new ApiError(404, 'User account not found');
+
+  user.isDeleted = false;
+  user.deletedAt = null;
+  user.deletedBy = null;
+  user.isActive = true;
+  await user.save();
+
+  return user.toSafeJSON();
+}
+
 module.exports = {
   listUsers,
   getUser,
@@ -139,4 +177,6 @@ module.exports = {
   updateUser,
   toggleActive,
   resetPassword,
+  deleteUser,
+  restoreUser,
 };

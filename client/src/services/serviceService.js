@@ -20,3 +20,11 @@ export async function createService(payload) {
 export async function updateService(id, payload) {
   return api.patch(`/services/${id}`, payload)
 }
+
+export async function deleteService(id) {
+  return api.delete(`/services/${id}`)
+}
+
+export async function restoreService(id) {
+  return api.post(`/services/${id}/restore`)
+}

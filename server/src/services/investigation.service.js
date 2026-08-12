@@ -135,7 +135,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  Investigation.findOne({ _id: id, isArchived: false })
+  Investigation.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone dob')
     .populate('doctor', 'name')
     .populate('completedBy', 'name')
@@ -145,6 +145,78 @@ const baseQuery = (id) =>
     .populate('treatmentPlan', 'planNumber name status')
     .populate('result.completedBy', 'name')
     .populate('attachments.uploadedBy', 'name');
+
+async function remove(id, actor) {
+  const doc = await Investigation.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Investigation not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'investigation',
+    entityId: doc._id,
+    description: `Investigation ${doc.investigationNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restore(id, actor) {
+  const doc = await Investigation.findById(id);
+  if (!doc) throw new ApiError(404, 'Investigation not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
+async function listByPatient(patientId, actor) {
+  await assertPatient(patientId);
+  const docs = await Investigation.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 })
+    .populate('patient', 'name')
+    .populate('doctor', 'name')
+    .populate('completedBy', 'name')
+    .populate('visit', 'opNumber')
+    .populate('consultation', 'status')
+    .populate('diagnosis', 'name category toothNumber');
+  return docs.map(sanitize);
+}
+
+async function listByConsultation(consultationId, actor) {
+  const consultation = await Consultation.findById(consultationId);
+  if (!consultation) throw new ApiError(404, 'Consultation not found');
+  const docs = await Investigation.find({ consultation: consultationId, isArchived: false, isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 })
+    .populate('patient', 'name')
+    .populate('doctor', 'name')
+    .populate('completedBy', 'name')
+    .populate('visit', 'opNumber')
+    .populate('consultation', 'status')
+    .populate('diagnosis', 'name category toothNumber')
+    .populate('treatmentPlan', 'name status');
+  return docs.map(sanitize);
+}
+
+module.exports = {
+  create,
+  get,
+  update,
+  remove,
+  restore,
+  addResult,
+  addAttachment,
+  listByPatient,
+  listByConsultation,
+};
 
 async function create(payload, actor) {
   const patient = await assertPatient(payload.patientId);
@@ -288,38 +360,12 @@ async function addAttachment(id, payload, actor) {
   return sanitize(await baseQuery(id));
 }
 
-async function listByPatient(patientId, actor) {
-  await assertPatient(patientId);
-  const docs = await Investigation.find({ patient: patientId, isArchived: false })
-    .sort({ createdAt: -1 })
-    .populate('patient', 'name')
-    .populate('doctor', 'name')
-    .populate('completedBy', 'name')
-    .populate('visit', 'opNumber')
-    .populate('consultation', 'status')
-    .populate('diagnosis', 'name category toothNumber');
-  return docs.map(sanitize);
-}
-
-async function listByConsultation(consultationId, actor) {
-  const consultation = await Consultation.findById(consultationId);
-  if (!consultation) throw new ApiError(404, 'Consultation not found');
-  const docs = await Investigation.find({ consultation: consultationId, isArchived: false })
-    .sort({ createdAt: -1 })
-    .populate('patient', 'name')
-    .populate('doctor', 'name')
-    .populate('completedBy', 'name')
-    .populate('visit', 'opNumber')
-    .populate('consultation', 'status')
-    .populate('diagnosis', 'name category toothNumber')
-    .populate('treatmentPlan', 'name status');
-  return docs.map(sanitize);
-}
-
 module.exports = {
   create,
   get,
   update,
+  remove,
+  restore,
   addResult,
   addAttachment,
   listByPatient,

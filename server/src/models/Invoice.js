@@ -18,6 +18,8 @@ const invoiceItemSchema = new mongoose.Schema(
     unitPricePaise: { type: Number, default: 0, min: 0 }, // price snapshot in paise
     taxPercent: { type: Number, default: 0, min: 0 },
     sortOrder: { type: Number, default: 0 },
+    _isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -52,6 +54,9 @@ const invoiceSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     isArchived: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

@@ -68,6 +68,16 @@ const listPayments = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, payments });
 });
 
+const remove = asyncHandler(async (req, res) => {
+  const result = await invoiceService.removeInvoice(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const invoice = await invoiceService.restoreInvoice(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Invoice restored successfully.', invoice });
+});
+
 module.exports = {
   create,
   get,
@@ -77,6 +87,8 @@ module.exports = {
   update,
   addItem,
   removeItem,
+  remove,
+  restore,
   finalize,
   cancel,
   print,

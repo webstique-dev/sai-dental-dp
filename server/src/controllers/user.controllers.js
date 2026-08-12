@@ -31,4 +31,14 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Password reset successfully', user });
 });
 
-module.exports = { list, get, create, update, toggleActive, resetPassword };
+const remove = asyncHandler(async (req, res) => {
+  const result = await userService.deleteUser(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const user = await userService.restoreUser(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Staff account restored successfully.', user });
+});
+
+module.exports = { list, get, create, update, toggleActive, resetPassword, remove, restore };

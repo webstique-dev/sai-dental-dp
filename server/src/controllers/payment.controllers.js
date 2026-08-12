@@ -31,4 +31,14 @@ const receipt = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, receipt });
 });
 
-module.exports = { get, list, listByInvoice, listByPatient, refund, receipt };
+const remove = asyncHandler(async (req, res) => {
+  const result = await paymentService.removePayment(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const payment = await paymentService.restorePayment(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Payment restored successfully.', payment });
+});
+
+module.exports = { get, list, listByInvoice, listByPatient, refund, receipt, remove, restore };

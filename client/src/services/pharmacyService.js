@@ -17,6 +17,14 @@ export async function updateMedicine(id, payload) {
   return api.patch(`/medicines/${id}`, payload)
 }
 
+export async function deleteMedicine(id) {
+  return api.delete(`/medicines/${id}`)
+}
+
+export async function restoreMedicine(id) {
+  return api.post(`/medicines/${id}/restore`)
+}
+
 export async function stockIn(id, payload) {
   return api.post(`/medicines/${id}/stock-in`, payload)
 }

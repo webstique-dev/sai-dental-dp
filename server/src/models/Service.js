@@ -15,6 +15,9 @@ const serviceSchema = new mongoose.Schema(
     taxPercent: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

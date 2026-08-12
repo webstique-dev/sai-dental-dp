@@ -11,6 +11,8 @@ mainRouter.patch('/follow-ups/:id', protect, authorize('admin', 'doctor', 'recep
 mainRouter.post('/follow-ups/:id/schedule', protect, authorize('admin', 'doctor', 'receptionist'), followUpController.schedule);
 mainRouter.post('/follow-ups/:id/complete', protect, authorize('admin', 'doctor'), followUpController.complete);
 mainRouter.post('/follow-ups/:id/cancel', protect, authorize('admin', 'doctor', 'receptionist'), followUpController.cancel);
+mainRouter.delete('/follow-ups/:id', protect, authorize('admin', 'doctor', 'receptionist'), followUpController.remove);
+mainRouter.post('/follow-ups/:id/restore', protect, authorize('admin'), followUpController.restore);
 
 // GET /api/patients/:patientId/follow-ups
 const patientRouter = express.Router({ mergeParams: true });

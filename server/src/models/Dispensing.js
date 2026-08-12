@@ -39,6 +39,9 @@ const dispensingSchema = new mongoose.Schema(
     cancelledAt: { type: Date },
     cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, trim: true, default: '' },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

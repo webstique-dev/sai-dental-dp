@@ -51,6 +51,9 @@ const inventoryTransactionSchema = new mongoose.Schema(
     reason: { type: String, trim: true, default: '' },
     notes: { type: String, trim: true, default: '' },
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

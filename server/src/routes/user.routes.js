@@ -12,5 +12,7 @@ router.get('/:id', authorize('admin'), userController.get);
 router.patch('/:id', authorize('admin'), userController.update);
 router.post('/:id/toggle-active', authorize('admin'), userController.toggleActive);
 router.post('/:id/reset-password', authorize('admin'), userController.resetPassword);
+router.delete('/:id', authorize('admin'), userController.remove);
+router.post('/:id/restore', authorize('admin'), userController.restore);
 
 module.exports = router;

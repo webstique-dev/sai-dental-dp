@@ -11,5 +11,7 @@ router.post('/', authorize('admin', 'doctor', 'receptionist'), patientController
 router.get('/', authorize('admin', 'doctor', 'receptionist'), patientController.list);
 router.get('/:id', authorize('admin', 'doctor', 'receptionist'), patientController.getById);
 router.patch('/:id', authorize('admin', 'doctor', 'receptionist'), patientController.update);
+router.delete('/:id', authorize('admin', 'doctor', 'receptionist'), patientController.remove);
+router.post('/:id/restore', authorize('admin'), patientController.restore);
 
 module.exports = router;

@@ -19,6 +19,9 @@ const diagnosisSchema = new mongoose.Schema(
     status: { type: String, enum: DIAGNOSIS_STATUSES, default: 'active' },
     date: { type: Date, default: Date.now },
     isArchived: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

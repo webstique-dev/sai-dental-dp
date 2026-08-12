@@ -21,4 +21,14 @@ const update = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Service updated', service });
 });
 
-module.exports = { create, list, get, update };
+const remove = asyncHandler(async (req, res) => {
+  const result = await serviceService.removeService(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const service = await serviceService.restoreService(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Service restored successfully.', service });
+});
+
+module.exports = { create, list, get, update, remove, restore };

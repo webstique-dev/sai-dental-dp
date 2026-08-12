@@ -9,6 +9,8 @@ mainRouter.get('/treatment-records/:id', protect, authorize('admin', 'doctor', '
 mainRouter.patch('/treatment-records/:id', protect, authorize('admin', 'doctor'), treatmentRecordController.update);
 mainRouter.post('/treatment-records/:id/complete', protect, authorize('admin', 'doctor'), treatmentRecordController.complete);
 mainRouter.post('/treatment-records/:id/cancel', protect, authorize('admin', 'doctor'), treatmentRecordController.cancel);
+mainRouter.delete('/treatment-records/:id', protect, authorize('admin', 'doctor'), treatmentRecordController.remove);
+mainRouter.post('/treatment-records/:id/restore', protect, authorize('admin'), treatmentRecordController.restore);
 
 // GET /api/patients/:patientId/treatment-records
 const patientRouter = express.Router({ mergeParams: true });

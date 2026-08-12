@@ -136,7 +136,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  TreatmentPlan.findOne({ _id: id, isArchived: false })
+  TreatmentPlan.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('doctor', 'name')
     .populate('approvedBy', 'name')
     .populate('visit', 'opNumber')
@@ -227,7 +227,7 @@ async function create(payload, actor) {
 
 async function listByPatient(patientId, actor) {
   await assertPatient(patientId);
-  const docs = await TreatmentPlan.find({ patient: patientId, isArchived: false })
+  const docs = await TreatmentPlan.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ createdAt: -1 })
     .populate('doctor', 'name')
     .populate('approvedBy', 'name')
@@ -241,6 +241,38 @@ async function get(id, actor) {
   const doc = await baseQuery(id);
   if (!doc) throw new ApiError(404, 'Treatment plan not found');
   return sanitize(doc);
+}
+
+async function removePlan(id, actor) {
+  const doc = await TreatmentPlan.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Treatment plan not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'treatment-plan',
+    entityId: doc._id,
+    description: `Plan ${doc.planNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restorePlan(id, actor) {
+  const doc = await TreatmentPlan.findById(id);
+  if (!doc) throw new ApiError(404, 'Treatment plan not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
 }
 
 async function update(id, payload, actor) {
@@ -408,6 +440,8 @@ async function decline(id, reason, actor) {
 module.exports = {
   create,
   update,
+  removePlan,
+  restorePlan,
   addItem,
   updateItem,
   removeItem,

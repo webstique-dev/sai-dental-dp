@@ -130,6 +130,8 @@ module.exports = {
   list,
   get,
   update,
+  deleteMedicine: inventory.deleteMedicine,
+  restoreMedicine: inventory.restoreMedicine,
   addStock,
   removeStock,
   createTransaction,

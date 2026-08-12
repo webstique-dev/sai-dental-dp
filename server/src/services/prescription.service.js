@@ -163,7 +163,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  Prescription.findOne({ _id: id, isArchived: false })
+  Prescription.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone dob')
     .populate('doctor', 'name')
     .populate('issuedBy', 'name')
@@ -171,6 +171,77 @@ const baseQuery = (id) =>
     .populate('visit', 'opNumber')
     .populate('consultation', 'status')
     .populate('diagnosis', 'name category toothNumber');
+
+async function remove(id, actor) {
+  const doc = await Prescription.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Prescription not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'prescription',
+    entityId: doc._id,
+    description: `Prescription ${doc.prescriptionNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restore(id, actor) {
+  const doc = await Prescription.findById(id);
+  if (!doc) throw new ApiError(404, 'Prescription not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
+async function listByPatient(patientId, actor) {
+  await assertPatient(patientId);
+  const docs = await Prescription.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 })
+    .populate('patient', 'name patientId')
+    .populate('doctor', 'name')
+    .populate('issuedBy', 'name')
+    .populate('visit', 'opNumber')
+    .populate('consultation', 'status')
+    .populate('diagnosis', 'name category toothNumber');
+  return docs.map(sanitize);
+}
+
+async function listByConsultation(consultationId, actor) {
+  const consultation = await Consultation.findById(consultationId);
+  if (!consultation) throw new ApiError(404, 'Consultation not found');
+  const docs = await Prescription.find({ consultation: consultationId, isArchived: false, isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 })
+    .populate('patient', 'name')
+    .populate('doctor', 'name')
+    .populate('issuedBy', 'name')
+    .populate('visit', 'opNumber')
+    .populate('consultation', 'status')
+    .populate('diagnosis', 'name category toothNumber');
+  return docs.map(sanitize);
+}
+
+module.exports = {
+  create,
+  get,
+  update,
+  issue,
+  remove,
+  restore,
+  listByPatient,
+  listByConsultation,
+  getPrintView,
+};
 
 async function create(payload, actor) {
   const patient = await assertPatient(payload.patientId);
@@ -306,38 +377,13 @@ async function issue(id, actor) {
   return sanitize(await baseQuery(id));
 }
 
-async function listByPatient(patientId, actor) {
-  await assertPatient(patientId);
-  const docs = await Prescription.find({ patient: patientId, isArchived: false })
-    .sort({ createdAt: -1 })
-    .populate('patient', 'name patientId')
-    .populate('doctor', 'name')
-    .populate('issuedBy', 'name')
-    .populate('visit', 'opNumber')
-    .populate('consultation', 'status')
-    .populate('diagnosis', 'name category toothNumber');
-  return docs.map(sanitize);
-}
-
-async function listByConsultation(consultationId, actor) {
-  const consultation = await Consultation.findById(consultationId);
-  if (!consultation) throw new ApiError(404, 'Consultation not found');
-  const docs = await Prescription.find({ consultation: consultationId, isArchived: false })
-    .sort({ createdAt: -1 })
-    .populate('patient', 'name')
-    .populate('doctor', 'name')
-    .populate('issuedBy', 'name')
-    .populate('visit', 'opNumber')
-    .populate('consultation', 'status')
-    .populate('diagnosis', 'name category toothNumber');
-  return docs.map(sanitize);
-}
-
 module.exports = {
   create,
   get,
   update,
   issue,
+  remove,
+  restore,
   listByPatient,
   listByConsultation,
   getPrintView,

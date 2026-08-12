@@ -13,4 +13,14 @@ const listAuditLogs = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, logs });
 });
 
-module.exports = { exportBackup, listAuditLogs };
+const listDeletedRecords = asyncHandler(async (req, res) => {
+  const records = await adminBackupService.listDeletedRecords(req.query);
+  res.status(200).json({ success: true, records });
+});
+
+const restoreRecord = asyncHandler(async (req, res) => {
+  const record = await adminBackupService.restoreRecord(req.params.entity, req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Record restored successfully.', record });
+});
+
+module.exports = { exportBackup, listAuditLogs, listDeletedRecords, restoreRecord };

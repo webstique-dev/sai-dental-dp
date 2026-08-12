@@ -120,6 +120,62 @@ async function exportDatabaseBackup(actor) {
   };
 }
 
+const MODEL_MAP = {
+  patient: Patient,
+  appointment: Appointment,
+  visit: Visit,
+  consultation: Consultation,
+  diagnosis: Diagnosis,
+  treatmentPlan: TreatmentPlan,
+  prescription: Prescription,
+  investigation: Investigation,
+  treatmentRecord: TreatmentRecord,
+  followUp: FollowUp,
+  invoice: Invoice,
+  payment: Payment,
+  medicine: Medicine,
+  service: Service,
+  user: User,
+};
+
+async function listDeletedRecords({ entity } = {}) {
+  if (entity && MODEL_MAP[entity]) {
+    const Model = MODEL_MAP[entity];
+    const docs = await Model.find({ isDeleted: true }).sort({ deletedAt: -1 }).lean();
+    return { [entity]: docs };
+  }
+
+  const results = {};
+  for (const [key, Model] of Object.entries(MODEL_MAP)) {
+    const docs = await Model.find({ isDeleted: true }).sort({ deletedAt: -1 }).limit(100).lean();
+    if (docs.length) {
+      results[key] = docs;
+    }
+  }
+  return results;
+}
+
+async function restoreRecord(entity, id, actor) {
+  const Model = MODEL_MAP[entity];
+  if (!Model) throw new Error('Invalid entity type for restoration');
+  const doc = await Model.findById(id);
+  if (!doc) throw new Error('Record not found');
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'update',
+    entity,
+    entityId: doc._id,
+    description: `Admin restored soft-deleted ${entity} record`,
+  });
+
+  return doc;
+}
+
 async function listAuditLogs({ limit = 100, entity } = {}) {
   const query = {};
   if (entity) query.entity = entity;
@@ -129,4 +185,4 @@ async function listAuditLogs({ limit = 100, entity } = {}) {
     .populate('user', 'name role email');
 }
 
-module.exports = { exportDatabaseBackup, listAuditLogs };
+module.exports = { exportDatabaseBackup, listAuditLogs, listDeletedRecords, restoreRecord };

@@ -31,17 +31,109 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  Payment.findOne({ _id: id, isArchived: false })
+  Payment.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('invoice', 'invoiceNumber status paymentStatus totalPaise balancePaise')
     .populate('patient', 'firstName lastName patientId phone')
     .populate('visit', 'opNumber')
     .populate('receivedBy', 'name');
 
 async function loadActiveInvoice(invoiceId) {
-  const invoice = await Invoice.findOne({ _id: invoiceId, isArchived: false });
+  const invoice = await Invoice.findOne({ _id: invoiceId, isArchived: false, isDeleted: { $ne: true } });
   if (!invoice) throw new ApiError(404, 'Invoice not found');
   return invoice;
 }
+
+async function removePayment(id, actor) {
+  const doc = await Payment.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Payment not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'payment',
+    entityId: doc._id,
+    description: `Payment ${doc.paymentNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restorePayment(id, actor) {
+  const doc = await Payment.findById(id);
+  if (!doc) throw new ApiError(404, 'Payment not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
+async function list({ patientId, invoiceId, from, to, limit } = {}) {
+  const query = { isArchived: false, isDeleted: { $ne: true } };
+  if (patientId) query.patient = patientId;
+  if (invoiceId) query.invoice = invoiceId;
+  if (from || to) {
+    query.paymentDate = {};
+    if (from) query.paymentDate.$gte = new Date(from);
+    if (to) query.paymentDate.$lte = new Date(to);
+  }
+  const maxLimit = Math.min(Number(limit) || 100, 500);
+  const docs = await Payment.find(query)
+    .sort({ paymentDate: -1, createdAt: -1 })
+    .limit(maxLimit)
+    .populate('invoice', 'invoiceNumber status')
+    .populate('patient', 'firstName lastName patientId phone');
+  return docs.map(sanitize);
+}
+
+async function listByInvoice(invoiceId) {
+  return list({ invoiceId });
+}
+
+async function listByPatient(patientId) {
+  return list({ patientId });
+}
+
+// Receipt view: payment + the invoice snapshot it belongs to + patient.
+async function receipt(id, actor) {
+  const doc = await baseQuery(id);
+  if (!doc) throw new ApiError(404, 'Payment not found');
+  const d = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: doc._id,
+    paymentNumber: d.paymentNumber,
+    type: d.type,
+    amount: toRupees(d.amountPaise),
+    method: d.method,
+    reference: d.reference || '',
+    paymentDate: d.paymentDate,
+    notes: d.notes || '',
+    invoice: d.invoice,
+    patient: d.patient,
+    visit: d.visit,
+    receivedBy: d.receivedBy,
+  };
+}
+
+module.exports = {
+  createForInvoice,
+  createRefundForInvoice,
+  get,
+  list,
+  listByInvoice,
+  listByPatient,
+  removePayment,
+  restorePayment,
+  getPrintView: get,
+  receipt,
+};
 
 // Server-side safety: never trust a client-computed total. The invoice's stored
 // totals are authoritative; a payment can never exceed the outstanding balance.
@@ -160,53 +252,6 @@ async function get(id, actor) {
   return sanitize(doc);
 }
 
-async function list({ patientId, invoiceId, from, to, limit } = {}) {
-  const query = { isArchived: false };
-  if (patientId) query.patient = patientId;
-  if (invoiceId) query.invoice = invoiceId;
-  if (from || to) {
-    query.paymentDate = {};
-    if (from) query.paymentDate.$gte = new Date(from);
-    if (to) query.paymentDate.$lte = new Date(to);
-  }
-  const maxLimit = Math.min(Number(limit) || 100, 500);
-  const docs = await Payment.find(query)
-    .sort({ paymentDate: -1, createdAt: -1 })
-    .limit(maxLimit)
-    .populate('invoice', 'invoiceNumber status')
-    .populate('patient', 'firstName lastName patientId phone');
-  return docs.map(sanitize);
-}
-
-async function listByInvoice(invoiceId) {
-  return list({ invoiceId });
-}
-
-async function listByPatient(patientId) {
-  return list({ patientId });
-}
-
-// Receipt view: payment + the invoice snapshot it belongs to + patient.
-async function receipt(id, actor) {
-  const doc = await baseQuery(id);
-  if (!doc) throw new ApiError(404, 'Payment not found');
-  const d = doc.toObject ? doc.toObject() : doc;
-  return {
-    id: doc._id,
-    paymentNumber: d.paymentNumber,
-    type: d.type,
-    amount: toRupees(d.amountPaise),
-    method: d.method,
-    reference: d.reference || '',
-    paymentDate: d.paymentDate,
-    notes: d.notes || '',
-    invoice: d.invoice,
-    patient: d.patient,
-    visit: d.visit,
-    receivedBy: d.receivedBy,
-  };
-}
-
 module.exports = {
   createForInvoice,
   createRefundForInvoice,
@@ -214,6 +259,8 @@ module.exports = {
   list,
   listByInvoice,
   listByPatient,
+  removePayment,
+  restorePayment,
   getPrintView: get,
   receipt,
 };

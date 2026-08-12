@@ -16,6 +16,7 @@ async function getReceptionistSummary({ date } = {}) {
   const visits = await Visit.find({
     opDate: { $gte: start, $lt: end },
     isArchived: false,
+    isDeleted: { $ne: true },
   });
 
   const totalFootfall = visits.length;
@@ -43,6 +44,7 @@ async function getReceptionistSummary({ date } = {}) {
   const payments = await Payment.find({
     paymentDate: { $gte: start, $lt: end },
     isArchived: false,
+    isDeleted: { $ne: true },
   });
 
   let totalRevenuePaise = 0;
@@ -82,6 +84,7 @@ async function getReceptionistSummary({ date } = {}) {
   // 3. Appointment Status Summary
   const appointments = await Appointment.find({
     date: { $gte: start, $lt: end },
+    isDeleted: { $ne: true },
   });
 
   const appointmentStatuses = {
@@ -142,6 +145,7 @@ async function getPharmacySummary({ date } = {}) {
   const dispensings = await Dispensing.find({
     dispensedAt: { $gte: start, $lt: end },
     status: 'completed',
+    isDeleted: { $ne: true },
   })
     .populate('patient', 'firstName lastName patientId phone')
     .populate('pharmacist', 'name role')
@@ -154,8 +158,8 @@ async function getPharmacySummary({ date } = {}) {
   });
 
   // 2. Stock-on-Hand Valuation
-  const medicines = await Medicine.find({ isActive: true });
-  const batches = await MedicineBatch.find({ isActive: true });
+  const medicines = await Medicine.find({ isActive: true, isDeleted: { $ne: true } });
+  const batches = await MedicineBatch.find({ isActive: true, isDeleted: { $ne: true } });
 
   let totalMedicines = medicines.length;
   let totalBatches = batches.length;
@@ -189,6 +193,7 @@ async function getPharmacySummary({ date } = {}) {
 
   const expiringBatches = await MedicineBatch.find({
     isActive: true,
+    isDeleted: { $ne: true },
     currentQuantity: { $gt: 0 },
     expiryDate: { $ne: null, $lte: sixtyDaysFromNow },
   }).populate('medicine', 'name genericName');

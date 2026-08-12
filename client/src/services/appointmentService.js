@@ -24,3 +24,11 @@ export async function updateAppointment(id, payload) {
 export async function cancelAppointment(id, reason) {
   return api.post(`/appointments/${id}/cancel`, { reason })
 }
+
+export async function deleteAppointment(id) {
+  return api.delete(`/appointments/${id}`)
+}
+
+export async function restoreAppointment(id) {
+  return api.post(`/appointments/${id}/restore`)
+}

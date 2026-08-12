@@ -36,4 +36,14 @@ const listByConsultation = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, investigations });
 });
 
-module.exports = { create, get, update, addResult, addAttachment, listByPatient, listByConsultation };
+const remove = asyncHandler(async (req, res) => {
+  const result = await investigationService.remove(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const investigation = await investigationService.restore(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Investigation restored successfully.', investigation });
+});
+
+module.exports = { create, get, update, addResult, addAttachment, listByPatient, listByConsultation, remove, restore };

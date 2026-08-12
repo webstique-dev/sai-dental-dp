@@ -49,4 +49,14 @@ const listUpcoming = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, followUps });
 });
 
-module.exports = { create, get, update, schedule, complete, cancel, listByPatient, listByConsultation, listUpcoming };
+const remove = asyncHandler(async (req, res) => {
+  const result = await followUpService.removeFollowUp(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const followUp = await followUpService.restoreFollowUp(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Follow-up restored successfully.', followUp });
+});
+
+module.exports = { create, get, update, schedule, complete, cancel, listByPatient, listByConsultation, listUpcoming, remove, restore };

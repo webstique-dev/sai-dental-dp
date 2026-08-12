@@ -10,6 +10,8 @@ mainRouter.post('/medicines', protect, authorize('admin', 'pharmacy'), medicineC
 mainRouter.get('/medicines/search', protect, authorize('admin', 'pharmacy', 'doctor', 'receptionist'), medicineController.search);
 mainRouter.get('/medicines/:id', protect, authorize('admin', 'pharmacy', 'doctor', 'receptionist'), medicineController.get);
 mainRouter.patch('/medicines/:id', protect, authorize('admin', 'pharmacy'), medicineController.update);
+mainRouter.delete('/medicines/:id', protect, authorize('admin', 'pharmacy'), medicineController.remove);
+mainRouter.post('/medicines/:id/restore', protect, authorize('admin'), medicineController.restore);
 mainRouter.post('/medicines/:id/stock-in', protect, authorize('admin', 'pharmacy'), medicineController.addStock);
 mainRouter.post('/medicines/:id/stock-out', protect, authorize('admin', 'pharmacy'), medicineController.removeStock);
 

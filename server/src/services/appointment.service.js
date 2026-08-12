@@ -33,7 +33,7 @@ async function createAppointment(payload) {
 }
 
 async function listAppointments({ listDate, doctor, status, limit = 100 } = {}) {
-  const filter = {};
+  const filter = { isDeleted: { $ne: true } };
   if (listDate) {
     const start = new Date(listDate);
     start.setHours(0, 0, 0, 0);
@@ -52,7 +52,7 @@ async function listAppointments({ listDate, doctor, status, limit = 100 } = {}) 
 }
 
 async function getAppointment(id) {
-  const appointment = await Appointment.findById(id)
+  const appointment = await Appointment.findOne({ _id: id, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone')
     .populate('doctor', 'name role');
   if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -60,11 +60,11 @@ async function getAppointment(id) {
 }
 
 async function updateAppointment(id, payload) {
-  const appointment = await Appointment.findById(id);
+  const appointment = await Appointment.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!appointment) throw new ApiError(404, 'Appointment not found');
 
   if (payload.doctor && payload.doctor.toString() !== appointment.doctor.toString()) {
-    const doctor = await User.findById(payload.doctor);
+    const doctor = await User.findOne({ _id: payload.doctor, isDeleted: { $ne: true } });
     if (!doctor || doctor.role !== 'doctor') {
       throw new ApiError(400, 'Selected doctor is not valid');
     }
@@ -85,7 +85,7 @@ async function updateAppointment(id, payload) {
 }
 
 async function cancelAppointment(id, reason) {
-  const appointment = await Appointment.findById(id);
+  const appointment = await Appointment.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!appointment) throw new ApiError(404, 'Appointment not found');
 
   appointment.status = 'cancelled';
@@ -97,10 +97,34 @@ async function cancelAppointment(id, reason) {
   return getAppointment(appointment._id);
 }
 
+async function deleteAppointment(id, actor) {
+  const appointment = await Appointment.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!appointment) throw new ApiError(404, 'Appointment not found');
+
+  appointment.isDeleted = true;
+  appointment.deletedAt = new Date();
+  if (actor && actor._id) appointment.deletedBy = actor._id;
+  await appointment.save();
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreAppointment(id) {
+  const appointment = await Appointment.findById(id);
+  if (!appointment) throw new ApiError(404, 'Appointment not found');
+
+  appointment.isDeleted = false;
+  appointment.deletedAt = null;
+  appointment.deletedBy = null;
+  await appointment.save();
+  return getAppointment(appointment._id);
+}
+
 module.exports = {
   createAppointment,
   listAppointments,
   getAppointment,
   updateAppointment,
   cancelAppointment,
+  deleteAppointment,
+  restoreAppointment,
 };

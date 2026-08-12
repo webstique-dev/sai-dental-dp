@@ -28,3 +28,11 @@ export async function toggleUserActive(id) {
 export async function resetUserPassword(id, newPassword) {
   return api.post(`/users/${id}/reset-password`, { newPassword })
 }
+
+export async function deleteUser(id) {
+  return api.delete(`/users/${id}`)
+}
+
+export async function restoreUser(id) {
+  return api.post(`/users/${id}/restore`)
+}

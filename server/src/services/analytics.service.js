@@ -110,6 +110,7 @@ async function collectPayments(start, end) {
   return Payment.find({
     paymentDate: { $gte: start, $lte: end },
     isArchived: false,
+    isDeleted: { $ne: true },
   })
     .populate('patient', 'firstName lastName patientId')
     .populate('invoice', 'invoiceNumber')
@@ -120,6 +121,7 @@ async function collectDispensing(start, end) {
   return Dispensing.find({
     dispensedAt: { $gte: start, $lte: end },
     status: 'completed',
+    isDeleted: { $ne: true },
   })
     .populate('patient', 'firstName lastName patientId')
     .populate('items.medicine', 'costPrice category name')
@@ -130,6 +132,7 @@ async function collectPurchases(start, end) {
   return InventoryTransaction.find({
     action: { $in: ['purchase', 'purchase-in'] },
     createdAt: { $gte: start, $lte: end },
+    isDeleted: { $ne: true },
   })
     .populate('batch', 'purchasePrice supplier batchNumber')
     .populate('medicine', 'costPrice category name')
@@ -137,7 +140,7 @@ async function collectPurchases(start, end) {
 }
 
 async function collectInventory() {
-  const meds = await Medicine.find({ isActive: true }).lean();
+  const meds = await Medicine.find({ isActive: true, isDeleted: { $ne: true } }).lean();
   const byCategory = new Map();
   const lowStock = [];
   let totalStock = 0;
@@ -203,12 +206,12 @@ async function getDashboardAnalytics({ period = '30d' } = {}) {
       collectDispensing(start, end),
       collectPurchases(start, end),
       collectInventory(),
-      Patient.countDocuments({ isArchived: false }),
-      Patient.countDocuments({ createdAt: { $gte: start, $lte: end }, isArchived: false }),
-      Consultation.countDocuments({ visitDate: { $gte: start, $lte: end }, isArchived: false }),
-      Visit.countDocuments({ opDate: { $gte: start, $lte: end }, isArchived: false }),
-      Appointment.countDocuments({ date: { $gte: start, $lte: end } }),
-      TreatmentRecord.find({ procedureDate: { $gte: start, $lte: end }, isArchived: false }).lean(),
+      Patient.countDocuments({ isArchived: false, isDeleted: { $ne: true } }),
+      Patient.countDocuments({ createdAt: { $gte: start, $lte: end }, isArchived: false, isDeleted: { $ne: true } }),
+      Consultation.countDocuments({ visitDate: { $gte: start, $lte: end }, isArchived: false, isDeleted: { $ne: true } }),
+      Visit.countDocuments({ opDate: { $gte: start, $lte: end }, isArchived: false, isDeleted: { $ne: true } }),
+      Appointment.countDocuments({ date: { $gte: start, $lte: end }, isDeleted: { $ne: true } }),
+      TreatmentRecord.find({ procedureDate: { $gte: start, $lte: end }, isArchived: false, isDeleted: { $ne: true } }).lean(),
     ]);
 
   // Revenue / orders per bucket

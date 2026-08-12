@@ -35,4 +35,14 @@ const cancel = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Appointment cancelled', appointment });
 });
 
-module.exports = { create, list, getById, update, cancel };
+const remove = asyncHandler(async (req, res) => {
+  const result = await appointmentService.deleteAppointment(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const appointment = await appointmentService.restoreAppointment(req.params.id);
+  res.status(200).json({ success: true, message: 'Appointment restored successfully.', appointment });
+});
+
+module.exports = { create, list, getById, update, cancel, remove, restore };

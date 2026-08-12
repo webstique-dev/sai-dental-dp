@@ -32,4 +32,14 @@ const update = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Patient updated', patient });
 });
 
-module.exports = { create, list, getById, checkDuplicate, update };
+const remove = asyncHandler(async (req, res) => {
+  const result = await patientService.deletePatient(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const patient = await patientService.restorePatient(req.params.id);
+  res.status(200).json({ success: true, message: 'Patient restored successfully.', patient });
+});
+
+module.exports = { create, list, getById, checkDuplicate, update, remove, restore };

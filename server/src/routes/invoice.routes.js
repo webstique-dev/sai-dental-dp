@@ -9,6 +9,8 @@ mainRouter.get('/invoices', protect, authorize('admin', 'doctor', 'receptionist'
 mainRouter.post('/invoices', protect, authorize('admin', 'receptionist'), invoiceController.create);
 mainRouter.get('/invoices/:id', protect, authorize('admin', 'doctor', 'receptionist'), invoiceController.get);
 mainRouter.patch('/invoices/:id', protect, authorize('admin', 'receptionist'), invoiceController.update);
+mainRouter.delete('/invoices/:id', protect, authorize('admin', 'receptionist'), invoiceController.remove);
+mainRouter.post('/invoices/:id/restore', protect, authorize('admin'), invoiceController.restore);
 mainRouter.post('/invoices/:id/items', protect, authorize('admin', 'doctor', 'receptionist'), invoiceController.addItem);
 mainRouter.delete('/invoices/:id/items/:itemId', protect, authorize('admin', 'receptionist'), invoiceController.removeItem);
 mainRouter.post('/invoices/:id/finalize', protect, authorize('admin', 'receptionist'), invoiceController.finalize);
@@ -32,6 +34,8 @@ visitRouter.get('/', protect, authorize('admin', 'doctor', 'receptionist'), (req
 // Payments module
 mainRouter.get('/payments', protect, authorize('admin', 'doctor', 'receptionist'), paymentController.list);
 mainRouter.get('/payments/:id', protect, authorize('admin', 'doctor', 'receptionist'), paymentController.get);
+mainRouter.delete('/payments/:id', protect, authorize('admin', 'receptionist'), paymentController.remove);
+mainRouter.post('/payments/:id/restore', protect, authorize('admin'), paymentController.restore);
 mainRouter.get('/payments/:id/receipt', protect, authorize('admin', 'doctor', 'receptionist'), paymentController.receipt);
 
 module.exports = { mainRouter, patientRouter, visitRouter };

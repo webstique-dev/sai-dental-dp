@@ -76,7 +76,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  Diagnosis.findOne({ _id: id, isArchived: false })
+  Diagnosis.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
     .populate('consultation', 'status');
@@ -155,10 +155,42 @@ async function update(id, payload, actor) {
   return sanitize(await baseQuery(id));
 }
 
+async function remove(id, actor) {
+  const doc = await Diagnosis.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Diagnosis not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'diagnosis',
+    entityId: doc._id,
+    description: `Diagnosis "${doc.name}" soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restore(id, actor) {
+  const doc = await Diagnosis.findById(id);
+  if (!doc) throw new ApiError(404, 'Diagnosis not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
 async function listByConsultation(consultationId, actor) {
   const consultation = await Consultation.findById(consultationId);
   if (!consultation) throw new ApiError(404, 'Consultation not found');
-  const docs = await Diagnosis.find({ consultation: consultationId, isArchived: false })
+  const docs = await Diagnosis.find({ consultation: consultationId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ date: -1, createdAt: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -168,7 +200,7 @@ async function listByConsultation(consultationId, actor) {
 
 async function listByPatient(patientId, actor) {
   await assertPatient(patientId);
-  const docs = await Diagnosis.find({ patient: patientId, isArchived: false })
+  const docs = await Diagnosis.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ date: -1, createdAt: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -185,6 +217,8 @@ async function get(id, actor) {
 module.exports = {
   create,
   update,
+  remove,
+  restore,
   listByConsultation,
   listByPatient,
   get,

@@ -366,7 +366,7 @@ async function createBatch(medicineId, payload, actor) {
 }
 
 async function listBatches({ medicineId, q, status, includeInactive } = {}) {
-  const query = {};
+  const query = { isDeleted: { $ne: true } };
   if (medicineId) query.medicine = medicineId;
   if (!includeInactive) query.isActive = true;
   if (q) {
@@ -385,18 +385,18 @@ async function listBatches({ medicineId, q, status, includeInactive } = {}) {
 }
 
 async function getBatch(id) {
-  const doc = await MedicineBatch.findById(id).populate('medicine', 'name genericName category');
+  const doc = await MedicineBatch.findOne({ _id: id, isDeleted: { $ne: true } }).populate('medicine', 'name genericName category');
   if (!doc) throw new ApiError(404, 'Batch not found');
   return sanitizeBatch(doc);
 }
 
 async function updateBatch(id, payload, actor) {
-  const doc = await MedicineBatch.findById(id);
+  const doc = await MedicineBatch.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!doc) throw new ApiError(404, 'Batch not found');
   if (payload.batchNumber !== undefined) {
     const bn = String(payload.batchNumber).trim().toUpperCase();
     if (!bn) throw new ApiError(400, 'Batch number is required.');
-    const dup = await MedicineBatch.findOne({ medicine: doc.medicine, batchNumber: bn, _id: { $ne: doc._id } });
+    const dup = await MedicineBatch.findOne({ medicine: doc.medicine, batchNumber: bn, _id: { $ne: doc._id }, isDeleted: { $ne: true } });
     if (dup) throw new ApiError(409, `Batch "${bn}" already exists for this medicine.`);
     doc.batchNumber = bn;
   }
@@ -428,7 +428,7 @@ async function updateBatch(id, payload, actor) {
 
 // Receive stock into an existing batch (purchase).
 async function receiveStock(batchId, payload, actor) {
-  const batch = await MedicineBatch.findById(batchId);
+  const batch = await MedicineBatch.findOne({ _id: batchId, isDeleted: { $ne: true } });
   if (!batch) throw new ApiError(404, 'Batch not found');
   const qty = Number(payload && payload.quantity);
   if (!Number.isFinite(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be a positive number.');
@@ -463,7 +463,7 @@ async function receiveStock(batchId, payload, actor) {
 
 // Adjustment (up or down) with a recorded reason and movement type.
 async function adjustStock(batchId, payload, actor) {
-  const batch = await MedicineBatch.findById(batchId);
+  const batch = await MedicineBatch.findOne({ _id: batchId, isDeleted: { $ne: true } });
   if (!batch) throw new ApiError(404, 'Batch not found');
   const quantity = Number(payload && payload.quantity);
   if (!Number.isFinite(quantity) || quantity <= 0) throw new ApiError(400, 'Quantity must be a positive number.');
@@ -501,7 +501,7 @@ async function adjustStock(batchId, payload, actor) {
 async function createReturn(payload, actor) {
   const qty = Number(payload && payload.quantity);
   if (!Number.isFinite(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be a positive number.');
-  const batch = await MedicineBatch.findById(payload.batchId);
+  const batch = await MedicineBatch.findOne({ _id: payload.batchId, isDeleted: { $ne: true } });
   if (!batch) throw new ApiError(404, 'Batch not found');
   const doc = await StockReturn.create({
     returnNumber: await nextReturnNumber(),
@@ -644,7 +644,7 @@ async function createMedicine(payload, actor) {
 }
 
 async function updateMedicine(id, payload, actor) {
-  const doc = await Medicine.findById(id);
+  const doc = await Medicine.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!doc) throw new ApiError(404, 'Medicine not found');
   if (payload.name !== undefined) {
     const name = String(payload.name).trim();
@@ -688,7 +688,7 @@ const escapeRx = (s) => String(s).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 async function listMedicines(opts = {}) {
   const { q, category, lowStock, outOfStock, expiringSoon, expired, activeOnly, limit = 500 } = opts;
-  const query = {};
+  const query = { isDeleted: { $ne: true } };
   if (category) query.category = category;
   if (activeOnly) query.isActive = true;
   if (q) {
@@ -702,7 +702,7 @@ async function listMedicines(opts = {}) {
   const n = Math.min(Number(limit) || 500, 1000);
   const docs = await Medicine.find(query).sort({ name: 1 }).limit(n);
   const ids = docs.map((m) => m._id);
-  const batchDocs = await MedicineBatch.find({ medicine: { $in: ids } }).sort({ expiryDate: 1 }).lean();
+  const batchDocs = await MedicineBatch.find({ medicine: { $in: ids }, isDeleted: { $ne: true } }).sort({ expiryDate: 1 }).lean();
   const byMed = new Map();
   for (const b of batchDocs) {
     const key = String(b.medicine);
@@ -721,6 +721,7 @@ async function searchMedicines(q = '') {
   const rx = new RegExp(escapeRx(q), 'i');
   const docs = await Medicine.find({
     isActive: true,
+    isDeleted: { $ne: true },
     $or: [
       { name: rx }, { genericName: rx }, { brandName: rx }, { sku: rx },
       { barcode: rx }, { manufacturer: rx },
@@ -732,8 +733,36 @@ async function searchMedicines(q = '') {
 }
 
 async function getMedicine(id) {
+  const doc = await Medicine.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Medicine not found');
+  const batches = await listBatches({ medicineId: id, includeInactive: true });
+  return sanitizeMedicine(doc, batches);
+}
+
+async function deleteMedicine(id, actor) {
+  const doc = await Medicine.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Medicine not found');
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'medicine',
+    entityId: doc._id,
+    description: `Medicine "${doc.name}" soft deleted`,
+  });
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreMedicine(id, actor) {
   const doc = await Medicine.findById(id);
   if (!doc) throw new ApiError(404, 'Medicine not found');
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
   const batches = await listBatches({ medicineId: id, includeInactive: true });
   return sanitizeMedicine(doc, batches);
 }
@@ -856,6 +885,8 @@ module.exports = {
   listMedicines,
   searchMedicines,
   getMedicine,
+  deleteMedicine,
+  restoreMedicine,
   listBatches,
   getBatch,
   createBatch,

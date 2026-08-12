@@ -109,7 +109,7 @@ function sanitize(doc) {
 }
 
 const baseQuery = (id) =>
-  TreatmentRecord.findOne({ _id: id, isArchived: false })
+  TreatmentRecord.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone dob')
     .populate('doctor', 'name')
     .populate('startedBy', 'name')
@@ -404,9 +404,41 @@ async function cancel(id, payload, actor) {
   return sanitize(await baseQuery(id));
 }
 
+async function removeRecord(id, actor) {
+  const doc = await TreatmentRecord.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Treatment record not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'treatment-record',
+    entityId: doc._id,
+    description: `Treatment record ${doc.recordNumber} (${doc.procedure}) soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreRecord(id, actor) {
+  const doc = await TreatmentRecord.findById(id);
+  if (!doc) throw new ApiError(404, 'Treatment record not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
 async function listByPatient(patientId, actor) {
   await assertPatient(patientId);
-  const docs = await TreatmentRecord.find({ patient: patientId, isArchived: false })
+  const docs = await TreatmentRecord.find({ patient: patientId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ procedureDate: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -419,7 +451,7 @@ async function listByPatient(patientId, actor) {
 async function listByConsultation(consultationId, actor) {
   const consultation = await Consultation.findById(consultationId);
   if (!consultation) throw new ApiError(404, 'Consultation not found');
-  const docs = await TreatmentRecord.find({ consultation: consultationId, isArchived: false })
+  const docs = await TreatmentRecord.find({ consultation: consultationId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ procedureDate: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -431,7 +463,7 @@ async function listByConsultation(consultationId, actor) {
 async function listByPlan(planId, actor) {
   const plan = await TreatmentPlan.findById(planId);
   if (!plan) throw new ApiError(404, 'Treatment plan not found');
-  const docs = await TreatmentRecord.find({ treatmentPlan: planId, isArchived: false })
+  const docs = await TreatmentRecord.find({ treatmentPlan: planId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ procedureDate: -1 })
     .populate('doctor', 'name')
     .populate('visit', 'opNumber')
@@ -447,6 +479,8 @@ module.exports = {
   update,
   complete,
   cancel,
+  removeRecord,
+  restoreRecord,
   listByPatient,
   listByConsultation,
   listByPlan,

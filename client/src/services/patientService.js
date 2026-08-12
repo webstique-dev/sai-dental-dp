@@ -29,3 +29,11 @@ export async function createPatient(payload) {
 export async function updatePatient(id, payload) {
   return api.patch(`/patients/${id}`, payload)
 }
+
+export async function deletePatient(id) {
+  return api.delete(`/patients/${id}`)
+}
+
+export async function restorePatient(id) {
+  return api.post(`/patients/${id}/restore`)
+}

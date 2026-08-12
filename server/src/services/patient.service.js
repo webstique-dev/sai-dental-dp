@@ -35,7 +35,7 @@ async function createPatient(payload) {
 }
 
 async function listPatients({ search, limit = 25, skip = 0 } = {}) {
-  const filter = { isArchived: false };
+  const filter = { isArchived: false, isDeleted: { $ne: true } };
   if (search) {
     const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [
@@ -68,6 +68,7 @@ async function checkDuplicatePatient({ phone, firstName, lastName } = {}) {
 
   const matches = await Patient.find({
     isArchived: false,
+    isDeleted: { $ne: true },
     $or: conditions,
   }).limit(10);
 
@@ -78,7 +79,7 @@ async function checkDuplicatePatient({ phone, firstName, lastName } = {}) {
 }
 
 async function updatePatient(id, payload) {
-  const patient = await Patient.findById(id);
+  const patient = await Patient.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!patient) throw new ApiError(404, 'Patient not found');
 
   const data = normalize({ ...patient.toObject(), ...payload });
@@ -88,9 +89,37 @@ async function updatePatient(id, payload) {
 }
 
 async function getPatient(id) {
-  const patient = await Patient.findById(id);
+  const patient = await Patient.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!patient) throw new ApiError(404, 'Patient not found');
   return patient;
 }
 
-module.exports = { createPatient, listPatients, getPatient, checkDuplicatePatient, updatePatient };
+async function deletePatient(id, actor) {
+  const patient = await Patient.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!patient) throw new ApiError(404, 'Patient not found');
+  patient.isDeleted = true;
+  patient.deletedAt = new Date();
+  if (actor && actor._id) patient.deletedBy = actor._id;
+  await patient.save();
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restorePatient(id) {
+  const patient = await Patient.findById(id);
+  if (!patient) throw new ApiError(404, 'Patient not found');
+  patient.isDeleted = false;
+  patient.deletedAt = null;
+  patient.deletedBy = null;
+  await patient.save();
+  return patient;
+}
+
+module.exports = {
+  createPatient,
+  listPatients,
+  getPatient,
+  checkDuplicatePatient,
+  updatePatient,
+  deletePatient,
+  restorePatient,
+};

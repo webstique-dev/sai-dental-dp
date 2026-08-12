@@ -8,6 +8,8 @@ mainRouter.post('/prescriptions', protect, authorize('admin', 'doctor'), prescri
 mainRouter.get('/prescriptions/:id', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.get);
 mainRouter.patch('/prescriptions/:id', protect, authorize('admin', 'doctor'), prescriptionController.update);
 mainRouter.post('/prescriptions/:id/issue', protect, authorize('admin', 'doctor'), prescriptionController.issue);
+mainRouter.delete('/prescriptions/:id', protect, authorize('admin', 'doctor'), prescriptionController.remove);
+mainRouter.post('/prescriptions/:id/restore', protect, authorize('admin'), prescriptionController.restore);
 mainRouter.get('/prescriptions/:id/print', protect, authorize('admin', 'doctor', 'receptionist', 'pharmacy'), prescriptionController.print);
 
 // GET /api/consultations/:consultationId/prescriptions

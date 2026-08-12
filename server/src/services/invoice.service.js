@@ -183,7 +183,7 @@ async function refreshPaidTotals(invoice) {
 }
 
 const baseQuery = (id) =>
-  Invoice.findOne({ _id: id, isArchived: false })
+  Invoice.findOne({ _id: id, isArchived: false, isDeleted: { $ne: true } })
     .populate('patient', 'firstName lastName patientId gender phone')
     .populate('visit', 'opNumber')
     .populate('consultation', 'status')
@@ -320,7 +320,7 @@ async function get(id, actor) {
 }
 
 async function list({ q, patientId, status, paymentStatus, from, to, limit } = {}) {
-  const query = { isArchived: false };
+  const query = { isArchived: false, isDeleted: { $ne: true } };
   if (patientId) query.patient = patientId;
   if (status) {
     assertStatus(status);
@@ -341,7 +341,7 @@ async function list({ q, patientId, status, paymentStatus, from, to, limit } = {
     if (byNumber.length) {
       docs = byNumber;
     } else {
-      const patients = await Patient.find({ $or: [{ firstName: rx }, { lastName: rx }, { phone: rx }, { patientId: rx }] }).select('_id');
+      const patients = await Patient.find({ isDeleted: { $ne: true }, $or: [{ firstName: rx }, { lastName: rx }, { phone: rx }, { patientId: rx }] }).select('_id');
       const ids = patients.map((p) => p._id);
       if (ids.length) query.patient = { $in: ids };
       else query.patient = null;
@@ -362,7 +362,7 @@ async function list({ q, patientId, status, paymentStatus, from, to, limit } = {
 }
 
 async function listByVisit(visitId) {
-  const docs = await Invoice.find({ visit: visitId, isArchived: false })
+  const docs = await Invoice.find({ visit: visitId, isArchived: false, isDeleted: { $ne: true } })
     .sort({ billDate: -1 })
     .limit(200)
     .populate('patient', 'firstName lastName patientId gender phone')
@@ -583,6 +583,38 @@ async function getPrintView(id, actor) {
   };
 }
 
+async function removeInvoice(id, actor) {
+  const doc = await Invoice.findOne({ _id: id, isDeleted: { $ne: true } });
+  if (!doc) throw new ApiError(404, 'Invoice not found');
+
+  doc.isDeleted = true;
+  doc.deletedAt = new Date();
+  if (actor && actor._id) doc.deletedBy = actor._id;
+  await doc.save();
+
+  await recordAudit({
+    user: actor,
+    action: 'delete',
+    entity: 'invoice',
+    entityId: doc._id,
+    description: `Invoice ${doc.invoiceNumber} soft deleted`,
+  });
+
+  return { success: true, message: 'Record deleted successfully.' };
+}
+
+async function restoreInvoice(id, actor) {
+  const doc = await Invoice.findById(id);
+  if (!doc) throw new ApiError(404, 'Invoice not found');
+
+  doc.isDeleted = false;
+  doc.deletedAt = null;
+  doc.deletedBy = null;
+  await doc.save();
+
+  return sanitize(await baseQuery(id));
+}
+
 module.exports = {
   create,
   get,
@@ -591,6 +623,8 @@ module.exports = {
   update,
   addItem,
   removeItem,
+  removeInvoice,
+  restoreInvoice,
   finalize,
   cancel,
   getPrintView,

@@ -28,6 +28,8 @@ const treatmentPlanItemSchema = new mongoose.Schema(
     diagnosis: { type: mongoose.Schema.Types.ObjectId, ref: 'Diagnosis' },
     notes: { type: String, trim: true },
     sortOrder: { type: Number, default: 0 },
+    _isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -48,6 +50,9 @@ const treatmentPlanSchema = new mongoose.Schema(
     declineReason: { type: String, trim: true },
     notes: { type: String, trim: true },
     isArchived: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     items: [treatmentPlanItemSchema],
   },
   { timestamps: true },

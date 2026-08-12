@@ -315,10 +315,18 @@ async function runDispensing(prescriptionId, payload, actor) {
     for (const { batchId, qty } of applied) {
       await MedicineBatch.updateOne({ _id: batchId }, { $inc: { currentQuantity: qty } });
     }
-    await InventoryTransaction.deleteMany({
-      notes: `Dispensing for ${prescription.prescriptionNumber}`,
-      refType: null,
-    });
+    await InventoryTransaction.updateMany(
+      {
+        notes: `Dispensing for ${prescription.prescriptionNumber}`,
+        refType: null,
+      },
+      {
+        $set: {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      },
+    );
     throw err;
   }
 }

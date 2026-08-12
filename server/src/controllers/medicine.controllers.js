@@ -56,4 +56,14 @@ const listTransactions = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, transactions });
 });
 
-module.exports = { list, search, get, create, update, addStock, removeStock, listTransactions };
+const remove = asyncHandler(async (req, res) => {
+  const result = await medicineService.deleteMedicine(req.params.id, req.user);
+  res.status(200).json({ success: true, message: result.message });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const medicine = await medicineService.restoreMedicine(req.params.id, req.user);
+  res.status(200).json({ success: true, message: 'Medicine restored successfully.', medicine });
+});
+
+module.exports = { list, search, get, create, update, remove, restore, addStock, removeStock, listTransactions };
