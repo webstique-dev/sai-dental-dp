@@ -3,6 +3,7 @@ import { UserCheck, Clock, User, CheckCircle, Play, Printer, Plus, RefreshCw, XC
 import { getQueueList, checkInWalkIn, updateQueueStatus } from '../../services/checkInService'
 import { listPatients } from '../../services/patientService'
 import { publicService } from '../../services/publicService'
+import { SkeletonList } from '../../components/common/skeleton'
 
 export default function CheckInPage() {
   const [visits, setVisits] = useState([])
@@ -223,8 +224,8 @@ export default function CheckInPage() {
             </h3>
           </div>
 
-          {loading ? (
-            <div className="text-center py-4 text-muted">Loading queue...</div>
+          {loading && visits.length === 0 ? (
+            <SkeletonList items={3} />
           ) : waitingVisits.length === 0 ? (
             <div className="text-center py-6 text-muted" style={{ fontSize: '13px' }}>
               No patients waiting in queue.

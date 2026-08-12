@@ -21,6 +21,8 @@ import { getReceptionistSummary, getDashboardAnalytics } from '../../services/re
 import { LineChartCard, BarChartCard, PieChartCard } from '../../components/reports/charts'
 import { formatCurrency, formatNumber } from '../../utils/chartTheme'
 
+import { DashboardSkeleton } from '../../components/common/skeleton'
+
 const PERIODS = [
   { value: '7d', label: '7D' },
   { value: '30d', label: '30D' },
@@ -35,7 +37,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [period, setPeriod] = useState('30d')
   const [data, setData] = useState(null)
-  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [error, setError] = useState('')
 
   const isReceptionistOrAdmin = user.role === 'receptionist' || user.role === 'admin'
@@ -62,6 +64,11 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchAnalytics()
   }, [fetchAnalytics])
+
+  // Show full DashboardSkeleton only on initial load when no data exists yet
+  if (!data && analyticsLoading) {
+    return <DashboardSkeleton />
+  }
 
   const footfall = summary?.footfall || { total: 0, walkIn: 0, appointmentCheckIn: 0 }
   const revenue = summary?.revenue || { totalRupees: 0 }

@@ -3,6 +3,7 @@ import { Calendar, Clock, Plus, Search, Filter, Edit3, XCircle, CheckCircle2, Us
 import { listAppointments, createAppointment, updateAppointment, cancelAppointment } from '../../services/appointmentService'
 import { listPatients } from '../../services/patientService'
 import { checkInAppointment } from '../../services/checkInService'
+import { SkeletonTable } from '../../components/common/skeleton'
 import { publicService } from '../../services/publicService'
 
 const SOURCE_BADGES = {
@@ -326,8 +327,8 @@ export default function AppointmentsPage() {
           <h2 className="card-title">Appointments ({appointments.length})</h2>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">Loading appointments...</div>
+        {loading && appointments.length === 0 ? (
+          <SkeletonTable rows={6} columns={7} />
         ) : appointments.length === 0 ? (
           <div className="text-center py-8 text-muted">
             No appointments found for the selected date and filters.

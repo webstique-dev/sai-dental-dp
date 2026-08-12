@@ -9,6 +9,7 @@ import {
 } from '../../services/userService'
 import { TextField } from '../../components/ui/fields'
 import ConfirmationDialog from '../../components/common/ConfirmationDialog'
+import { SkeletonTable } from '../../components/common/skeleton'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -180,8 +181,8 @@ export default function UsersPage() {
 
       {/* Staff Table */}
       <div className="card" style={{ background: '#fff', padding: '20px', borderRadius: '12px' }}>
-        {loading ? (
-          <div className="py-8 text-center">Loading staff users...</div>
+        {loading && users.length === 0 ? (
+          <SkeletonTable rows={5} columns={6} />
         ) : users.length === 0 ? (
           <p className="text-muted">No staff accounts found.</p>
         ) : (

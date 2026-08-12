@@ -4,6 +4,7 @@ import { getReceptionistSummary, getPharmacySummary, getAnalyticsSeries, getInve
 import { getExecutiveAnalytics } from '../../services/settingsService'
 import { listUsers } from '../../services/userService'
 import { LineChartCard, BarChartCard, PieChartCard } from '../../components/reports/charts'
+import { ReportsSkeleton } from '../../components/common/skeleton'
 import { formatNumber, formatCurrency } from '../../utils/chartTheme'
 
 export default function ReportsPage() {
@@ -194,8 +195,8 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="text-center py-12">Loading reports data...</div>
+      {loading && !summary && !pharmacyReport && !analyticsData ? (
+        <ReportsSkeleton />
       ) : activeTab === 'analytics' ? (
         <div>
           {/* Executive Stat Cards */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, UserCheck, AlertTriangle, Edit3, X, RefreshCw } from 'lucide-react'
 import { listPatients, createPatient, updatePatient, checkDuplicatePatient } from '../../services/patientService'
+import { SkeletonTable } from '../../components/common/skeleton'
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState([])
@@ -248,8 +249,8 @@ export default function PatientsPage() {
           </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">Loading patients list...</div>
+        {loading && patients.length === 0 ? (
+          <SkeletonTable rows={6} columns={7} />
         ) : patients.length === 0 ? (
           <div className="text-center py-8 text-muted">
             No patient records found. Click "Register Patient" to add one.

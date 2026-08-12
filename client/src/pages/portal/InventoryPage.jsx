@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { SectionCard, Field } from '../../components/ui/fields'
 import ConfirmationDialog from '../../components/common/ConfirmationDialog'
+import { SkeletonTable } from '../../components/common/skeleton'
 import {
   listMedicines,
   createMedicine,
@@ -278,8 +279,8 @@ export default function InventoryPage() {
         </SectionCard>
       )}
 
-      {loading ? (
-        <p className="muted">Loading inventory…</p>
+      {loading && medicines.length === 0 ? (
+        <SkeletonTable rows={6} columns={6} />
       ) : medicines.length === 0 ? (
         <p className="state-card">No medicines match this view.</p>
       ) : (
