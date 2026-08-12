@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X, Eye, EyeOff } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
+import { useNotification } from '../components/common/notification'
+import { Modal } from '../components/common/modal'
 
 export function getRoleDefaultPath(role) {
   switch (role) {
@@ -17,6 +19,7 @@ export function getRoleDefaultPath(role) {
 }
 
 export default function LoginPage() {
+  const notify = useNotification()
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -37,6 +40,9 @@ export default function LoginPage() {
       setEmail(savedEmail)
       setRememberMe(true)
     }
+    if (location.state?.message) {
+      notify.success(location.state.message)
+    }
   }, [])
 
   if (user) {
@@ -46,16 +52,22 @@ export default function LoginPage() {
 
   const validateForm = () => {
     if (!email.trim()) {
-      setError('Please enter your email address.')
+      const msg = 'Please enter your email address.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     const emailRegex = /^\S+@\S+\.\S+$/
     if (!emailRegex.test(email.trim())) {
-      setError('Please enter a valid email address.')
+      const msg = 'Please enter a valid email address.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (!password) {
-      setError('Please enter your password.')
+      const msg = 'Please enter your password.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     return true
@@ -77,10 +89,13 @@ export default function LoginPage() {
       }
 
       const loggedUser = await login(email, password)
+      notify.success('Signed in successfully!')
       const targetPath = from || getRoleDefaultPath(loggedUser.role)
       navigate(targetPath, { replace: true })
     } catch (err) {
-      setError(err.message || 'Invalid credentials or unable to sign in. Please try again.')
+      const errMsg = err.message || 'Invalid credentials or unable to sign in. Please try again.'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setSubmitting(false)
     }
@@ -186,39 +201,28 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {showForgotModal && (
-        <div className="modal-backdrop" onClick={() => setShowForgotModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Password Reset Support</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setShowForgotModal(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>
-                For security reasons, password resets are handled directly by the Sai Dental Clinic administration team.
-              </p>
-              <p className="mt-2">
-                Please contact the front desk or email <strong>admin@saidental.local</strong> to verify your identity and request a password reset.
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowForgotModal(false)}
-              >
-                Understood
-              </button>
-            </div>
-          </div>
+      <Modal
+        open={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        title="Password Reset Support"
+        maxWidth="480px"
+      >
+        <p style={{ margin: '0 0 12px 0', color: '#334155', lineHeight: 1.5 }}>
+          For security reasons, password resets are handled directly by the Sai Dental Clinic administration team.
+        </p>
+        <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
+          Please contact the front desk or email <strong>admin@saidental.local</strong> to verify your identity and request a password reset.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowForgotModal(false)}
+          >
+            Understood
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

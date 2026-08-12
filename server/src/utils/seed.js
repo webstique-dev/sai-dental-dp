@@ -1,6 +1,10 @@
 const { User } = require('../models/User');
 const Service = require('../models/Service');
 const Medicine = require('../models/Medicine');
+const Patient = require('../models/Patient');
+const { Appointment } = require('../models/Appointment');
+const { Visit } = require('../models/Visit');
+const Invoice = require('../models/Invoice');
 
 const DEFAULT_USERS = [
   {
@@ -86,7 +90,7 @@ async function createSeedMedicines() {
     const exists = await Medicine.findOne({ name: data.name });
     if (!exists) {
       const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + (data.expiry || 180));
+      expiryDate.setDate(expiryDate.getDate() + (data.expiryDays || data.expiry || 180));
       await Medicine.create({
         name: data.name,
         genericName: data.genericName,
@@ -104,11 +108,81 @@ async function createSeedMedicines() {
   return created;
 }
 
+const DEFAULT_PATIENTS = [
+  { patientId: 'PAT-1001', title: 'Mr', firstName: 'Rajesh', lastName: 'Sharma', gender: 'male', phone: '9876543210', email: 'rajesh.sharma@example.com', city: 'Mumbai', bloodGroup: 'O+' },
+  { patientId: 'PAT-1002', title: 'Mrs', firstName: 'Anita', lastName: 'Verma', gender: 'female', phone: '9876543211', email: 'anita.verma@example.com', city: 'Pune', bloodGroup: 'B+' },
+  { patientId: 'PAT-1003', title: 'Mr', firstName: 'Vikram', lastName: 'Patel', gender: 'male', phone: '9876543212', email: 'vikram.patel@example.com', city: 'Ahmedabad', bloodGroup: 'A+' },
+  { patientId: 'PAT-1004', title: 'Mrs', firstName: 'Sunita', lastName: 'Rao', gender: 'female', phone: '9876543213', email: 'sunita.rao@example.com', city: 'Bengaluru', bloodGroup: 'AB+' },
+];
+
+async function createSeedPatients() {
+  const created = [];
+  for (const data of DEFAULT_PATIENTS) {
+    const exists = await Patient.findOne({ patientId: data.patientId });
+    if (!exists) {
+      const p = await Patient.create(data);
+      created.push(p);
+    } else {
+      created.push(exists);
+    }
+  }
+  return created;
+}
+
+async function createSeedDummyRecords() {
+  const patients = await createSeedPatients();
+  const doctor = await User.findOne({ role: 'doctor' });
+
+  if (!doctor || patients.length === 0) return;
+
+  // Appointments
+  const apptList = [
+    { appointmentNumber: 'APT-1001', patient: patients[0]._id, doctor: doctor._id, date: new Date(), time: '10:00 AM', type: 'New Consultation', source: 'phone', status: 'scheduled' },
+    { appointmentNumber: 'APT-1002', patient: patients[1]._id, doctor: doctor._id, date: new Date(), time: '11:30 AM', type: 'Dental Cleaning', source: 'walk-in', status: 'checked-in' },
+    { appointmentNumber: 'APT-1003', patient: patients[2]._id, doctor: doctor._id, date: new Date(), time: '02:00 PM', type: 'Root Canal Treatment', source: 'website', status: 'completed' },
+    { appointmentNumber: 'APT-1004', patient: patients[3]._id, doctor: doctor._id, date: new Date(), time: '04:15 PM', type: 'Follow-up', source: 'existing', status: 'confirmed' },
+  ];
+
+  for (const apt of apptList) {
+    const exists = await Appointment.findOne({ appointmentNumber: apt.appointmentNumber });
+    if (!exists) await Appointment.create(apt);
+  }
+
+  // Queue Visits
+  const visitList = [
+    { visitId: 'VST-1001', patient: patients[0]._id, doctor: doctor._id, opNumber: 'OP-101', token: 'T-01', status: 'registered', queueNumber: 1, date: new Date() },
+    { visitId: 'VST-1002', patient: patients[1]._id, doctor: doctor._id, opNumber: 'OP-102', token: 'T-02', status: 'in-progress', queueNumber: 2, date: new Date() },
+    { visitId: 'VST-1003', patient: patients[2]._id, doctor: doctor._id, opNumber: 'OP-103', token: 'T-03', status: 'completed', queueNumber: 3, date: new Date() },
+    { visitId: 'VST-1004', patient: patients[3]._id, doctor: doctor._id, opNumber: 'OP-104', token: 'T-04', status: 'registered', queueNumber: 4, date: new Date() },
+  ];
+
+  for (const vst of visitList) {
+    const exists = await Visit.findOne({ visitId: vst.visitId });
+    if (!exists) await Visit.create(vst);
+  }
+
+  // Invoices
+  const invList = [
+    { invoiceNumber: 'INV-1001', patient: patients[0]._id, doctor: doctor._id, status: 'finalized', paymentStatus: 'paid', items: [{ name: 'Consultation', qty: 1, unitPricePaise: 50000 }], subtotalPaise: 50000, totalPaise: 50000, amountPaidPaise: 50000, balancePaise: 0 },
+    { invoiceNumber: 'INV-1002', patient: patients[1]._id, doctor: doctor._id, status: 'finalized', paymentStatus: 'paid', items: [{ name: 'Dental Cleaning', qty: 1, unitPricePaise: 150000 }], subtotalPaise: 150000, totalPaise: 150000, amountPaidPaise: 150000, balancePaise: 0 },
+    { invoiceNumber: 'INV-1003', patient: patients[2]._id, doctor: doctor._id, status: 'finalized', paymentStatus: 'partially-paid', items: [{ name: 'Root Canal Treatment', qty: 1, unitPricePaise: 800000 }], subtotalPaise: 800000, totalPaise: 800000, amountPaidPaise: 400000, balancePaise: 400000 },
+    { invoiceNumber: 'INV-1004', patient: patients[3]._id, doctor: doctor._id, status: 'draft', paymentStatus: 'unpaid', items: [{ name: 'Dental Filling', qty: 1, unitPricePaise: 200000 }], subtotalPaise: 200000, totalPaise: 200000, amountPaidPaise: 0, balancePaise: 200000 },
+  ];
+
+  for (const inv of invList) {
+    const exists = await Invoice.findOne({ invoiceNumber: inv.invoiceNumber });
+    if (!exists) await Invoice.create(inv);
+  }
+}
+
 module.exports = {
   createSeedUsers,
   createSeedServices,
   createSeedMedicines,
+  createSeedPatients,
+  createSeedDummyRecords,
   DEFAULT_USERS,
   DEFAULT_SERVICES,
   DEFAULT_MEDICINES,
+  DEFAULT_PATIENTS,
 };

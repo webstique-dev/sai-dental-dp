@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
+import { useNotification } from '../components/common/notification'
 import { getRoleDefaultPath } from './LoginPage'
 
 export default function RegisterPage() {
+  const notify = useNotification()
   const { user, register } = useAuth()
   const navigate = useNavigate()
 
@@ -33,32 +35,46 @@ export default function RegisterPage() {
 
   const validate = () => {
     if (!formData.name.trim()) {
-      setError('Please enter your full name.')
+      const msg = 'Please enter your full name.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (!formData.email.trim()) {
-      setError('Please enter your email address.')
+      const msg = 'Please enter your email address.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     const emailRegex = /^\S+@\S+\.\S+$/
     if (!emailRegex.test(formData.email.trim())) {
-      setError('Please enter a valid email address.')
+      const msg = 'Please enter a valid email address.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (!formData.phone.trim()) {
-      setError('Please enter your phone number.')
+      const msg = 'Please enter your phone number.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (!formData.password) {
-      setError('Please enter a password.')
+      const msg = 'Please enter a password.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long.')
+      const msg = 'Password must be at least 6 characters long.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     if (formData.password !== formData.confirmPassword) {
-      setError('Password and confirmation password do not match.')
+      const msg = 'Password and confirmation password do not match.'
+      setError(msg)
+      notify.warning(msg)
       return false
     }
     return true
@@ -79,12 +95,15 @@ export default function RegisterPage() {
         password: formData.password,
         role: formData.role,
       })
+      notify.success('Account created successfully! Please sign in.')
       navigate('/login', {
         replace: true,
         state: { message: 'Account created successfully! Please sign in.' },
       })
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.')
+      const errMsg = err.message || 'Registration failed. Please try again.'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setSubmitting(false)
     }

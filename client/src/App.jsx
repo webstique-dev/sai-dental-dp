@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import AuthProvider from './context/AuthContext'
+import { NotificationProvider } from './components/common/notification'
 import RootLayout from './layouts/RootLayout'
 import HomePage from './pages/public/HomePage'
 import AboutPage from './pages/public/AboutPage'
@@ -54,7 +55,8 @@ function PageFallback() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <NotificationProvider>
+        <AuthProvider>
         <Routes>
           <Route element={<RootLayout />}>
             <Route index element={<HomePage />} />
@@ -315,6 +317,7 @@ export default function App() {
           </Route>
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
+    </NotificationProvider>
+  </BrowserRouter>
   )
 }

@@ -4,6 +4,8 @@ import { listAppointments, createAppointment, updateAppointment, cancelAppointme
 import { listPatients } from '../../services/patientService'
 import { checkInAppointment } from '../../services/checkInService'
 import { SkeletonTable } from '../../components/common/skeleton'
+import { Modal, ReusableFormModal } from '../../components/common/modal'
+import { useNotification } from '../../components/common/notification'
 import { publicService } from '../../services/publicService'
 
 const SOURCE_BADGES = {
@@ -25,6 +27,7 @@ const STATUS_BADGES = {
 }
 
 export default function AppointmentsPage() {
+  const notify = useNotification()
   const [appointments, setAppointments] = useState([])
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(false)
@@ -35,6 +38,9 @@ export default function AppointmentsPage() {
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0])
   const [filterDoctor, setFilterDoctor] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
 
   // Modal Book Appointment
   const [showBookModal, setShowBookModal] = useState(false)
@@ -106,6 +112,27 @@ export default function AppointmentsPage() {
     fetchAppointmentsList()
   }, [filterDate, filterDoctor, filterStatus])
 
+  const filteredAppointments = appointments.filter((apt) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      const matchNum = apt.appointmentNumber?.toLowerCase().includes(q)
+      const matchPat = (apt.patient?.firstName + ' ' + apt.patient?.lastName).toLowerCase().includes(q)
+      const matchDoc = apt.doctor?.name?.toLowerCase().includes(q)
+      if (!matchNum && !matchPat && !matchDoc) return false
+    }
+    if (typeFilter && apt.type !== typeFilter) return false
+    if (sourceFilter && apt.source !== sourceFilter) return false
+    return true
+  })
+
+  const clearApptFilters = () => {
+    setSearchQuery('')
+    setFilterDoctor('')
+    setFilterStatus('')
+    setTypeFilter('')
+    setSourceFilter('')
+  }
+
   // Patient search in Book Modal
   useEffect(() => {
     if (patientSearch.trim().length >= 2) {
@@ -142,10 +169,12 @@ export default function AppointmentsPage() {
     e.preventDefault()
     if (!selectedPatient) {
       setError('Please search and select a patient first')
+      notify.warning('Please search and select a patient first')
       return
     }
     if (!bookingForm.doctorId) {
       setError('Please select an assigned doctor')
+      notify.warning('Please select an assigned doctor')
       return
     }
 
@@ -164,11 +193,13 @@ export default function AppointmentsPage() {
         notes: bookingForm.notes.trim(),
       })
 
-      setNotice(`Appointment booked successfully for ${selectedPatient.firstName} ${selectedPatient.lastName}!`)
+      notify.success(`Appointment booked successfully for ${selectedPatient.firstName} ${selectedPatient.lastName}!`)
       setShowBookModal(false)
       fetchAppointmentsList()
     } catch (err) {
-      setError(err.message || 'Failed to book appointment')
+      const errMsg = err.message || 'Failed to book appointment'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setBookingSubmitting(false)
     }
@@ -201,11 +232,13 @@ export default function AppointmentsPage() {
         status: editForm.status,
         source: editForm.source,
       })
-      setNotice('Appointment updated successfully!')
+      notify.success('Appointment updated successfully!')
       setEditingApt(null)
       fetchAppointmentsList()
     } catch (err) {
-      setError(err.message || 'Failed to update appointment')
+      const errMsg = err.message || 'Failed to update appointment'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -213,22 +246,26 @@ export default function AppointmentsPage() {
     e.preventDefault()
     try {
       await cancelAppointment(cancellingApt._id, cancelReason)
-      setNotice('Appointment cancelled.')
+      notify.info('Appointment cancelled.')
       setCancellingApt(null)
       setCancelReason('')
       fetchAppointmentsList()
     } catch (err) {
-      setError(err.message || 'Failed to cancel appointment')
+      const errMsg = err.message || 'Failed to cancel appointment'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
   const handleCheckInNow = async (apt) => {
     try {
       const res = await checkInAppointment({ appointmentId: apt._id })
-      setNotice(`Patient checked in successfully! Generated Token: ${res.token}`)
+      notify.success(`Patient checked in! Token: ${res.token}`)
       fetchAppointmentsList()
     } catch (err) {
-      setError(err.message || 'Check-in failed')
+      const errMsg = err.message || 'Check-in failed'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -260,7 +297,21 @@ export default function AppointmentsPage() {
 
       {/* Filter Bar */}
       <div className="card mb-6" style={{ background: '#fff', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
-        <div className="flex gap-4 items-center flex-wrap" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="flex gap-4 items-center flex-wrap" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label className="field-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+              Search Appointments
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search appt#, patient or doctor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}
+            />
+          </div>
+
           <div>
             <label className="field-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
               <Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} /> Select Date
@@ -313,7 +364,15 @@ export default function AppointmentsPage() {
             </select>
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          {(searchQuery || filterDoctor || filterStatus) && (
+            <div style={{ marginTop: '20px' }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={clearApptFilters}>
+                Clear
+              </button>
+            </div>
+          )}
+
+          <div style={{ marginLeft: 'auto', marginTop: '20px' }}>
             <button type="button" className="btn btn-secondary btn-sm" onClick={fetchAppointmentsList}>
               <RefreshCw size={14} /> Refresh List
             </button>
@@ -324,12 +383,12 @@ export default function AppointmentsPage() {
       {/* Appointments List Table */}
       <div className="card">
         <div className="card-header flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2 className="card-title">Appointments ({appointments.length})</h2>
+          <h2 className="card-title">Appointments ({filteredAppointments.length})</h2>
         </div>
 
         {loading && appointments.length === 0 ? (
           <SkeletonTable rows={6} columns={7} />
-        ) : appointments.length === 0 ? (
+        ) : filteredAppointments.length === 0 ? (
           <div className="text-center py-8 text-muted">
             No appointments found for the selected date and filters.
           </div>
@@ -348,7 +407,7 @@ export default function AppointmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((apt) => {
+                {filteredAppointments.map((apt) => {
                   const srcBadge = SOURCE_BADGES[apt.source] || SOURCE_BADGES.other
                   const statusBadge = STATUS_BADGES[apt.status] || STATUS_BADGES.scheduled
                   return (
@@ -451,306 +510,291 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Book Appointment Modal */}
-      {showBookModal && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', background: '#fff', padding: '24px', borderRadius: '12px' }}>
-            <div className="modal-header flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', pb: '12px' }}>
-              <h3 style={{ margin: 0 }}>Book New Appointment</h3>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowBookModal(false)}>
-                <XCircle size={18} />
+      <ReusableFormModal
+        open={showBookModal}
+        onClose={() => setShowBookModal(false)}
+        onSubmit={handleBookSubmit}
+        title="Book New Appointment"
+        submitText="Confirm Appointment"
+        submitLoadingText="Booking..."
+        submitting={bookingSubmitting}
+        maxWidth="600px"
+      >
+        {/* Step 1: Select Patient */}
+        <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+            1. Search & Select Patient *
+          </label>
+          {selectedPatient ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e0f2fe', padding: '10px 14px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+              <div>
+                <strong style={{ color: '#0369a1' }}>{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.patientId}) - {selectedPatient.phone || 'No phone'}
+              </div>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedPatient(null)}>
+                Change
               </button>
             </div>
-
-            <form onSubmit={handleBookSubmit}>
-              {/* Step 1: Select Patient */}
-              <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
-                  1. Search & Select Patient *
-                </label>
-                {selectedPatient ? (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e0f2fe', padding: '8px 12px', borderRadius: '6px' }}>
-                    <div>
-                      <strong>{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.patientId}) - {selectedPatient.phone}
+          ) : (
+            <div>
+              <input
+                type="text"
+                className="form-control"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                placeholder="Type patient name, phone, or PAT-..."
+                value={patientSearch}
+                onChange={(e) => setPatientSearch(e.target.value)}
+              />
+              {matchingPatients.length > 0 && (
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '6px', background: '#fff', maxHeight: '160px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+                  {matchingPatients.map((p) => (
+                    <div
+                      key={p._id}
+                      style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                      onClick={() => {
+                        setSelectedPatient(p)
+                        setMatchingPatients([])
+                      }}
+                    >
+                      <strong>{p.firstName} {p.lastName}</strong> ({p.patientId}) - {p.phone || 'No phone'}
                     </div>
-                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedPatient(null)}>
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="text"
-                      className="form-control"
-                      style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      placeholder="Type patient name, phone, or PAT-..."
-                      value={patientSearch}
-                      onChange={(e) => setPatientSearch(e.target.value)}
-                    />
-                    {matchingPatients.length > 0 && (
-                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', background: '#fff', maxHeight: '150px', overflowY: 'auto' }}>
-                        {matchingPatients.map((p) => (
-                          <div
-                            key={p._id}
-                            style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                            onClick={() => {
-                              setSelectedPatient(p)
-                              setMatchingPatients([])
-                            }}
-                          >
-                            <strong>{p.firstName} {p.lastName}</strong> ({p.patientId}) - {p.phone || 'No phone'}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Step 2: Appointment Details */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assigned Doctor *</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={bookingForm.doctorId}
-                    onChange={(e) => setBookingForm({ ...bookingForm, doctorId: e.target.value })}
-                  >
-                    {doctors.map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name} ({d.specialization || 'Doctor'})
-                      </option>
-                    ))}
-                  </select>
+                  ))}
                 </div>
+              )}
+            </div>
+          )}
+        </div>
 
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Appointment Date *</label>
-                  <input
-                    type="date"
-                    required
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={bookingForm.date}
-                    onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                  />
-                </div>
-              </div>
+        {/* Step 2: Appointment Details */}
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assigned Doctor *</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={bookingForm.doctorId}
+              onChange={(e) => setBookingForm({ ...bookingForm, doctorId: e.target.value })}
+            >
+              {doctors.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name} ({d.specialization || 'Doctor'})
+                </option>
+              ))}
+            </select>
+          </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Time Slot</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={bookingForm.time}
-                    onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
-                    placeholder="e.g. 10:30 AM"
-                  />
-                </div>
-
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Intake Channel</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={bookingForm.source}
-                    onChange={(e) => setBookingForm({ ...bookingForm, source: e.target.value })}
-                  >
-                    <option value="phone">Phone Booking</option>
-                    <option value="walk-in">Walk-in</option>
-                    <option value="website">Online Website</option>
-                    <option value="existing">Existing Patient</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Type</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={bookingForm.type}
-                    onChange={(e) => setBookingForm({ ...bookingForm, type: e.target.value })}
-                  >
-                    <option value="New Consultation">New Consultation</option>
-                    <option value="Follow-up">Follow-up</option>
-                    <option value="Routine Checkup">Routine Checkup</option>
-                    <option value="Dental Cleaning">Dental Cleaning</option>
-                    <option value="Procedure">Procedure</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Chief Complaint / Reason</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={bookingForm.reason}
-                  onChange={(e) => setBookingForm({ ...bookingForm, reason: e.target.value })}
-                  placeholder="e.g. Tooth sensitivity, lower molar pain"
-                />
-              </div>
-
-              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', pt: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowBookModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={bookingSubmitting}>
-                  {bookingSubmitting ? 'Booking...' : 'Confirm Appointment'}
-                </button>
-              </div>
-            </form>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Appointment Date *</label>
+            <input
+              type="date"
+              required
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={bookingForm.date}
+              onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+            />
           </div>
         </div>
-      )}
+
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Time Slot</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={bookingForm.time}
+              onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+              placeholder="e.g. 10:30 AM"
+            />
+          </div>
+
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Intake Channel</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={bookingForm.source}
+              onChange={(e) => setBookingForm({ ...bookingForm, source: e.target.value })}
+            >
+              <option value="phone">Phone Booking</option>
+              <option value="walk-in">Walk-in</option>
+              <option value="website">Online Website</option>
+              <option value="existing">Existing Patient</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Type</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={bookingForm.type}
+              onChange={(e) => setBookingForm({ ...bookingForm, type: e.target.value })}
+            >
+              <option value="New Consultation">New Consultation</option>
+              <option value="Follow-up">Follow-up</option>
+              <option value="Routine Checkup">Routine Checkup</option>
+              <option value="Dental Cleaning">Dental Cleaning</option>
+              <option value="Procedure">Procedure</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '8px' }}>
+          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Chief Complaint / Reason</label>
+          <input
+            type="text"
+            className="form-control"
+            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+            value={bookingForm.reason}
+            onChange={(e) => setBookingForm({ ...bookingForm, reason: e.target.value })}
+            placeholder="e.g. Tooth sensitivity, lower molar pain"
+          />
+        </div>
+      </ReusableFormModal>
 
       {/* Edit Appointment Modal */}
-      {editingApt && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '550px', background: '#fff', padding: '24px', borderRadius: '12px' }}>
-            <div className="modal-header flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', pb: '12px' }}>
-              <h3 style={{ margin: 0 }}>Edit Appointment {editingApt.appointmentNumber}</h3>
-              <button type="button" className="btn btn-ghost" onClick={() => setEditingApt(null)}>
-                <XCircle size={18} />
-              </button>
+      <Modal
+        open={Boolean(editingApt)}
+        onClose={() => setEditingApt(null)}
+        title={editingApt ? `Edit Appointment ${editingApt.appointmentNumber}` : ''}
+        maxWidth="550px"
+      >
+        {editingApt && (
+          <form onSubmit={handleEditSubmit}>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assign Doctor</label>
+                <select
+                  className="form-control"
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  value={editForm.doctorId}
+                  onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
+                >
+                  {doctors.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                />
+              </div>
             </div>
 
-            <form onSubmit={handleEditSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assign Doctor</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={editForm.doctorId}
-                    onChange={(e) => setEditForm({ ...editForm, doctorId: e.target.value })}
-                  >
-                    {doctors.map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Date</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={editForm.date}
-                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Time</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={editForm.time}
-                    onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Status</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  >
-                    <option value="scheduled">Scheduled</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="checked-in">Checked In</option>
-                    <option value="in-consultation">In Consultation</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="no-show">No Show</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Source</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={editForm.source}
-                    onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
-                  >
-                    <option value="phone">Phone</option>
-                    <option value="walk-in">Walk-in</option>
-                    <option value="website">Website</option>
-                    <option value="existing">Existing</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason</label>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Time</label>
                 <input
                   type="text"
                   className="form-control"
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={editForm.reason}
-                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                  value={editForm.time}
+                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
                 />
               </div>
 
-              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', pt: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingApt(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Changes
-                </button>
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Status</label>
+                <select
+                  className="form-control"
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                >
+                  <option value="scheduled">Scheduled</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="checked-in">Checked In</option>
+                  <option value="in-consultation">In Consultation</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="no-show">No Show</option>
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Source</label>
+                <select
+                  className="form-control"
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  value={editForm.source}
+                  onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                >
+                  <option value="phone">Phone</option>
+                  <option value="walk-in">Walk-in</option>
+                  <option value="website">Website</option>
+                  <option value="existing">Existing</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason</label>
+              <input
+                type="text"
+                className="form-control"
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                value={editForm.reason}
+                onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingApt(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Changes
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Cancel Appointment Modal */}
-      {cancellingApt && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '450px', background: '#fff', padding: '24px', borderRadius: '12px' }}>
-            <h3 style={{ margin: '0 0 12px 0', color: '#dc2626' }}>Cancel Appointment {cancellingApt.appointmentNumber}?</h3>
-            <p className="text-sm text-muted mb-4">Are you sure you want to cancel this appointment?</p>
-
-            <form onSubmit={handleCancelSubmit}>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason for cancellation</label>
-                <input
-                  type="text"
-                  required
-                  className="form-control"
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Patient requested cancellation, doctor unavailable"
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setCancellingApt(null)}>
-                  Keep Appointment
-                </button>
-                <button type="submit" className="btn btn-danger" style={{ background: '#dc2626', color: '#fff', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>
-                  Cancel Appointment
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={Boolean(cancellingApt)}
+        onClose={() => setCancellingApt(null)}
+        title={cancellingApt ? `Cancel Appointment ${cancellingApt.appointmentNumber}` : ''}
+        maxWidth="450px"
+      >
+        {cancellingApt && (
+          <form onSubmit={handleCancelSubmit}>
+            <p className="text-sm text-muted mb-4" style={{ margin: '0 0 12px 0', color: '#64748b' }}>
+              Are you sure you want to cancel this appointment?
+            </p>
+            <div style={{ marginBottom: '16px' }}>
+              <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason for cancellation</label>
+              <input
+                type="text"
+                required
+                className="form-control"
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Patient requested reschedule"
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setCancellingApt(null)}>
+                Keep Appointment
+              </button>
+              <button type="submit" className="btn btn-danger">
+                Confirm Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   )
 }

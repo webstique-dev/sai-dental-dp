@@ -4,8 +4,11 @@ import { getQueueList, checkInWalkIn, updateQueueStatus } from '../../services/c
 import { listPatients } from '../../services/patientService'
 import { publicService } from '../../services/publicService'
 import { SkeletonList } from '../../components/common/skeleton'
+import { Modal } from '../../components/common/modal'
+import { useNotification } from '../../components/common/notification'
 
 export default function CheckInPage() {
+  const notify = useNotification()
   const [visits, setVisits] = useState([])
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(false)
@@ -23,70 +26,63 @@ export default function CheckInPage() {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [walkInForm, setWalkInForm] = useState({
     doctorId: '',
-    reason: 'Walk-in consultation',
-    type: 'Walk-in Consultation',
+    reason: '',
+    type: 'Walk-in',
   })
   const [walkInSubmitting, setWalkInSubmitting] = useState(false)
 
-  // Token print card preview modal
+  // Token ticket modal preview
   const [tokenTicket, setTokenTicket] = useState(null)
 
   const fetchQueue = async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await getQueueList({ date: filterDate, doctor: filterDoctor })
-      setVisits(res.visits || [])
+      const data = await getQueueList({ date: filterDate, doctorId: filterDoctor })
+      setVisits(data.visits || [])
     } catch (err) {
-      setError(err.message || 'Failed to load check-in queue')
+      const errMsg = err.message || 'Failed to load queue list'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchDoctors = async () => {
-    try {
-      const res = await publicService.listDoctors()
-      setDoctors(res.doctors || [])
-      if (res.doctors && res.doctors.length > 0 && !walkInForm.doctorId) {
-        setWalkInForm((prev) => ({ ...prev, doctorId: res.doctors[0]._id }))
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  useEffect(() => {
-    fetchDoctors()
-  }, [])
-
   useEffect(() => {
     fetchQueue()
+    publicService.getDoctors().then((docs) => {
+      setDoctors(docs)
+      if (docs.length > 0) {
+        setWalkInForm((prev) => ({ ...prev, doctorId: docs[0]._id }))
+      }
+    })
   }, [filterDate, filterDoctor])
 
   useEffect(() => {
-    if (patientSearch.trim().length >= 2) {
-      const timer = setTimeout(async () => {
-        try {
-          const res = await listPatients({ search: patientSearch.trim(), limit: 8 })
-          setMatchingPatients(res.items || [])
-        } catch {
-          // ignore
-        }
-      }, 300)
-      return () => clearTimeout(timer)
-    } else {
+    if (!patientSearch.trim()) {
       setMatchingPatients([])
+      return
     }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await listPatients({ search: patientSearch.trim(), limit: 5 })
+        setMatchingPatients(res.patients || [])
+      } catch (err) {
+        console.error(err)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
   }, [patientSearch])
 
   const openWalkInModal = () => {
     setSelectedPatient(null)
     setPatientSearch('')
+    setMatchingPatients([])
     setWalkInForm({
-      doctorId: doctors.length > 0 ? doctors[0]._id : '',
-      reason: 'Walk-in consultation',
-      type: 'Walk-in Consultation',
+      doctorId: doctors[0]?._id || '',
+      reason: '',
+      type: 'Walk-in',
     })
     setShowWalkInModal(true)
   }
@@ -94,11 +90,13 @@ export default function CheckInPage() {
   const handleWalkInSubmit = async (e) => {
     e.preventDefault()
     if (!selectedPatient) {
-      setError('Please search and select a patient')
+      setError('Please search and select a patient first')
+      notify.warning('Please search and select a patient first')
       return
     }
     if (!walkInForm.doctorId) {
       setError('Please select a doctor')
+      notify.warning('Please select a doctor')
       return
     }
 
@@ -113,7 +111,7 @@ export default function CheckInPage() {
         type: walkInForm.type,
       })
 
-      setNotice(`Walk-in patient checked in! Generated Token: ${res.token}`)
+      notify.success(`Walk-in patient checked in! Token: ${res.token}`)
       setShowWalkInModal(false)
       setTokenTicket({
         token: res.token,
@@ -126,7 +124,9 @@ export default function CheckInPage() {
       })
       fetchQueue()
     } catch (err) {
-      setError(err.message || 'Walk-in check-in failed')
+      const errMsg = err.message || 'Walk-in check-in failed'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setWalkInSubmitting(false)
     }
@@ -135,9 +135,12 @@ export default function CheckInPage() {
   const handleStatusChange = async (visitId, newStatus) => {
     try {
       await updateQueueStatus(visitId, newStatus)
+      notify.success(`Queue status updated to ${newStatus}`)
       fetchQueue()
     } catch (err) {
-      setError(err.message || 'Failed to update queue status')
+      const errMsg = err.message || 'Failed to update queue status'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -399,107 +402,106 @@ export default function CheckInPage() {
       </div>
 
       {/* Walk-in Check-in Modal */}
-      {showWalkInModal && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '550px', background: '#fff', padding: '24px', borderRadius: '12px' }}>
-            <div className="modal-header flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', pb: '12px' }}>
-              <h3 style={{ margin: 0 }}>Check-in Walk-in Patient</h3>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowWalkInModal(false)}>
-                <XCircle size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleWalkInSubmit}>
-              {/* Select Patient */}
-              <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
-                  1. Search & Select Patient *
-                </label>
-                {selectedPatient ? (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e0f2fe', padding: '8px 12px', borderRadius: '6px' }}>
-                    <div>
-                      <strong>{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.patientId})
-                    </div>
-                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedPatient(null)}>
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="text"
-                      className="form-control"
-                      style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      placeholder="Type patient name, phone, or PAT-..."
-                      value={patientSearch}
-                      onChange={(e) => setPatientSearch(e.target.value)}
-                    />
-                    {matchingPatients.length > 0 && (
-                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', background: '#fff', maxHeight: '140px', overflowY: 'auto' }}>
-                        {matchingPatients.map((p) => (
-                          <div
-                            key={p._id}
-                            style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                            onClick={() => {
-                              setSelectedPatient(p)
-                              setMatchingPatients([])
-                            }}
-                          >
-                            <strong>{p.firstName} {p.lastName}</strong> ({p.patientId}) - {p.phone || 'No phone'}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+      <Modal
+        open={showWalkInModal}
+        onClose={() => setShowWalkInModal(false)}
+        title="Check-in Walk-in Patient"
+        maxWidth="550px"
+      >
+        <form onSubmit={handleWalkInSubmit}>
+          {/* Select Patient */}
+          <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+              1. Search & Select Patient *
+            </label>
+            {selectedPatient ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e0f2fe', padding: '8px 12px', borderRadius: '6px' }}>
+                <div>
+                  <strong>{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.patientId})
+                </div>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedPatient(null)}>
+                  Change
+                </button>
               </div>
-
-              {/* Select Doctor & Details */}
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assign Doctor *</label>
-                <select
-                  className="form-control"
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={walkInForm.doctorId}
-                  onChange={(e) => setWalkInForm({ ...walkInForm, doctorId: e.target.value })}
-                >
-                  {doctors.map((d) => (
-                    <option key={d._id} value={d._id}>
-                      {d.name} ({d.specialization || 'Doctor'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason for Visit</label>
+            ) : (
+              <div>
                 <input
                   type="text"
                   className="form-control"
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={walkInForm.reason}
-                  onChange={(e) => setWalkInForm({ ...walkInForm, reason: e.target.value })}
-                  placeholder="e.g. Toothache, routine checkup, walk-in emergency"
+                  placeholder="Type patient name, phone, or PAT-..."
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
                 />
+                {matchingPatients.length > 0 && (
+                  <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', background: '#fff', maxHeight: '140px', overflowY: 'auto' }}>
+                    {matchingPatients.map((p) => (
+                      <div
+                        key={p._id}
+                        style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedPatient(p)
+                          setMatchingPatients([])
+                        }}
+                      >
+                        <strong>{p.firstName} {p.lastName}</strong> ({p.patientId}) - {p.phone || 'No phone'}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', pt: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowWalkInModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={walkInSubmitting}>
-                  {walkInSubmitting ? 'Checking in...' : 'Generate Token & Check In'}
-                </button>
-              </div>
-            </form>
+            )}
           </div>
-        </div>
-      )}
+
+          {/* Select Doctor & Details */}
+          <div style={{ marginBottom: '12px' }}>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Assign Doctor *</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={walkInForm.doctorId}
+              onChange={(e) => setWalkInForm({ ...walkInForm, doctorId: e.target.value })}
+            >
+              {doctors.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name} ({d.specialization || 'Doctor'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Reason for Visit</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={walkInForm.reason}
+              onChange={(e) => setWalkInForm({ ...walkInForm, reason: e.target.value })}
+              placeholder="e.g. Toothache, routine checkup, walk-in emergency"
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowWalkInModal(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={walkInSubmitting}>
+              {walkInSubmitting ? 'Checking in...' : 'Generate Token & Check In'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Printable Token Ticket Preview Modal */}
-      {tokenTicket && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '380px', background: '#fff', padding: '24px', borderRadius: '12px', textAlign: 'center' }}>
+      <Modal
+        open={Boolean(tokenTicket)}
+        onClose={() => setTokenTicket(null)}
+        title="Token Ticket"
+        maxWidth="380px"
+      >
+        {tokenTicket && (
+          <div style={{ textAlign: 'center' }}>
             <div style={{ borderBottom: '2px dashed #cbd5e1', paddingBottom: '12px', marginBottom: '12px' }}>
               <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>SAI DENTAL CLINIC</div>
               <div style={{ fontSize: '12px', color: '#64748b' }}>Patient Queue Token Ticket</div>
@@ -517,7 +519,7 @@ export default function CheckInPage() {
               <div><strong>Time:</strong> {tokenTicket.date} {tokenTicket.time}</div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -536,8 +538,8 @@ export default function CheckInPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

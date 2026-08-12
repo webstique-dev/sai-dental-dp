@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Menu, X, LogOut } from 'lucide-react'
+import { Menu, X, LogOut, User as UserIcon } from 'lucide-react'
 import { navForRole } from '../config/nav'
 import useAuth from '../hooks/useAuth'
 import ConfirmationDialog from '../components/common/ConfirmationDialog'
@@ -113,8 +113,8 @@ export default function PortalLayout() {
               </div>
             </NavLink>
             <div className="portal-user-actions">
-              <NavLink to="/portal/profile" className="btn btn-ghost btn-sm">
-                Profile
+              <NavLink to="/portal/profile" className="btn btn-ghost btn-sm" title="Profile" aria-label="Profile">
+                <UserIcon size={18} />
               </NavLink>
               <button
                 type="button"

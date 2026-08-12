@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react'
 import { Search, Plus, UserCheck, AlertTriangle, Edit3, X, RefreshCw } from 'lucide-react'
 import { listPatients, createPatient, updatePatient, checkDuplicatePatient } from '../../services/patientService'
 import { SkeletonTable } from '../../components/common/skeleton'
+import { Modal, ReusableFormModal } from '../../components/common/modal'
+import { useNotification } from '../../components/common/notification'
 
 export default function PatientsPage() {
+  const notify = useNotification()
   const [patients, setPatients] = useState([])
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
+  const [bloodGroupFilter, setBloodGroupFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -136,6 +141,7 @@ export default function PatientsPage() {
     e.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim()) {
       setError('First and Last Name are required')
+      notify.warning('First and Last Name are required')
       return
     }
     setSubmitting(true)
@@ -165,28 +171,67 @@ export default function PatientsPage() {
     try {
       if (editingPatient) {
         await updatePatient(editingPatient._id, payload)
-        setNotice(`Patient "${payload.firstName} ${payload.lastName}" updated successfully!`)
+        notify.success(`Patient details updated successfully!`)
       } else {
         await createPatient(payload)
-        setNotice(`New patient "${payload.firstName} ${payload.lastName}" registered!`)
+        notify.success(`Patient registered successfully!`)
       }
       setShowModal(false)
       fetchPatients()
     } catch (err) {
-      setError(err.message || 'Error saving patient')
+      const errMsg = err.message || 'Unable to register patient. Please try again.'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setSubmitting(false)
     }
   }
 
+  const filteredPatients = patients.filter((p) => {
+    if (genderFilter && p.gender !== genderFilter) return false
+    if (bloodGroupFilter && p.bloodGroup !== bloodGroupFilter) return false
+    return true
+  })
+
+  const clearPatientFilters = () => {
+    setSearch('')
+    setGenderFilter('')
+    setBloodGroupFilter('')
+    fetchPatients('')
+  }
+
   return (
     <div className="portal-page">
-      <div className="portal-heading flex justify-between items-center flex-wrap gap-4">
+      <div className="portal-heading flex justify-between items-center mb-6">
         <div>
-          <h1>Patient Registration & Directory</h1>
-          <p>Register new intake walk-in/phone patients or search existing records</p>
+          <h1>Patient Records</h1>
+          <p>Register, view, and manage patient clinical profiles.</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setEditingPatient(null)
+            setForm({
+              title: 'Mr',
+              firstName: '',
+              lastName: '',
+              phone: '',
+              email: '',
+              dob: '',
+              gender: 'male',
+              address: '',
+              city: '',
+              occupation: '',
+              emergencyName: '',
+              emergencyPhone: '',
+              bloodGroup: 'unknown',
+              alerts: '',
+            })
+            setDupWarnings([])
+            setShowModal(true)
+          }}
+        >
           <Plus size={16} /> Register Patient
         </button>
       </div>
@@ -209,41 +254,66 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="card mb-6">
-        <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center flex-wrap">
-          <div className="input-group flex-1 min-w-[240px]" style={{ display: 'flex', gap: '8px', flex: 1 }}>
+      {/* Search & Smart Filter Bar */}
+      <div className="card mb-6" style={{ background: '#fff', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
             <input
               type="text"
               className="form-control"
               placeholder="Search by Patient Name, Phone, or Patient ID (PAT-...)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              style={{ paddingLeft: '32px', height: '38px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
             />
-            <button type="submit" className="btn btn-secondary" disabled={loading}>
-              <Search size={16} /> Search
-            </button>
-            {search && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setSearch('')
-                  fetchPatients('')
-                }}
-              >
-                Clear
-              </button>
-            )}
+            <Search size={16} style={{ position: 'absolute', left: '10px', top: '11px', color: '#94a3b8' }} />
           </div>
+
+          <select
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value)}
+            className="form-control"
+            style={{ height: '38px', padding: '0 12px', minWidth: '140px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+          >
+            <option value="">All Genders</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+
+          <select
+            value={bloodGroupFilter}
+            onChange={(e) => setBloodGroupFilter(e.target.value)}
+            className="form-control"
+            style={{ height: '38px', padding: '0 12px', minWidth: '150px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+          >
+            <option value="">All Blood Groups</option>
+            <option value="A+">A+</option>
+            <option value="B+">B+</option>
+            <option value="O+">O+</option>
+            <option value="AB+">AB+</option>
+            <option value="A-">A-</option>
+            <option value="B-">B-</option>
+            <option value="O-">O-</option>
+            <option value="AB-">AB-</option>
+          </select>
+
+          <button type="submit" className="btn btn-secondary" disabled={loading} style={{ height: '38px' }}>
+            Search
+          </button>
+
+          {(search || genderFilter || bloodGroupFilter) && (
+            <button type="button" className="btn btn-ghost" onClick={clearPatientFilters} style={{ height: '38px' }}>
+              Clear
+            </button>
+          )}
         </form>
       </div>
 
       {/* Patients List */}
       <div className="card">
         <div className="card-header flex justify-between items-center mb-4">
-          <h2 className="card-title">Registered Patients ({total})</h2>
+          <h2 className="card-title">Registered Patients ({filteredPatients.length})</h2>
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => fetchPatients()}>
             <RefreshCw size={14} /> Refresh
           </button>
@@ -251,9 +321,9 @@ export default function PatientsPage() {
 
         {loading && patients.length === 0 ? (
           <SkeletonTable rows={6} columns={7} />
-        ) : patients.length === 0 ? (
+        ) : filteredPatients.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            No patient records found. Click "Register Patient" to add one.
+            No patient records match the selected search/filters. Click "Clear" to reset filters.
           </div>
         ) : (
           <div className="table-responsive" style={{ overflowX: 'auto' }}>
@@ -270,7 +340,7 @@ export default function PatientsPage() {
                 </tr>
               </thead>
               <tbody>
-                {patients.map((p) => (
+                {filteredPatients.map((p) => (
                   <tr key={p._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '10px', fontWeight: '600' }}>
                       <span className="badge badge-subtle">{p.patientId}</span>
@@ -306,217 +376,204 @@ export default function PatientsPage() {
       </div>
 
       {/* Register / Edit Patient Modal */}
-      {showModal && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#fff', padding: '24px', borderRadius: '12px' }}>
-            <div className="modal-header flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', pb: '12px' }}>
-              <h3 style={{ margin: 0 }}>{editingPatient ? 'Edit Patient Details' : 'Register New Patient'}</h3>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>
-                <X size={18} />
-              </button>
+      <ReusableFormModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleSave}
+        title={editingPatient ? 'Edit Patient Details' : 'Register New Patient'}
+        submitText={editingPatient ? 'Update Patient' : 'Save Patient Record'}
+        submitLoadingText="Saving..."
+        submitting={submitting}
+        maxWidth="650px"
+      >
+        {/* Duplicate Warnings Alert */}
+        {!editingPatient && dupWarnings.length > 0 && (
+          <div className="alert alert-warning mb-4" style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '12px', borderRadius: '8px', color: '#92400e', marginBottom: '16px' }}>
+            <div className="flex items-center gap-2 font-semibold mb-1" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={16} /> Potential Duplicate Patient(s) Found!
             </div>
+            <p className="text-sm mb-2" style={{ margin: '4px 0' }}>Existing patients match this phone number or name:</p>
+            <ul className="text-sm pl-4" style={{ margin: '4px 0 8px 16px' }}>
+              {dupWarnings.map((m) => (
+                <li key={m._id}>
+                  <strong>{m.patientId}</strong>: {m.firstName} {m.lastName} ({m.phone || 'No phone'}) - {m.city || 'No city'}
+                </li>
+              ))}
+            </ul>
+            <div className="text-xs text-muted" style={{ fontSize: '12px', color: '#78350f' }}>Please double check to prevent creating duplicate records.</div>
+          </div>
+        )}
 
-            {/* Duplicate Warnings Alert */}
-            {!editingPatient && dupWarnings.length > 0 && (
-              <div className="alert alert-warning mb-4" style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '12px', borderRadius: '8px', color: '#92400e' }}>
-                <div className="flex items-center gap-2 font-semibold mb-1" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={16} /> Potential Duplicate Patient(s) Found!
-                </div>
-                <p className="text-sm mb-2">Existing patients match this phone number or name:</p>
-                <ul className="text-sm pl-4" style={{ margin: '4px 0 8px 16px' }}>
-                  {dupWarnings.map((m) => (
-                    <li key={m._id}>
-                      <strong>{m.patientId}</strong>: {m.firstName} {m.lastName} ({m.phone || 'No phone'}) - {m.city || 'No city'}
-                    </li>
-                  ))}
-                </ul>
-                <div className="text-xs text-muted">Please double check to prevent creating duplicate records.</div>
-              </div>
-            )}
-
-            <form onSubmit={handleSave}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Title</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  >
-                    <option value="Mr">Mr</option>
-                    <option value="Mrs">Mrs</option>
-                    <option value="Ms">Ms</option>
-                    <option value="Master">Master</option>
-                    <option value="Dr">Dr</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>First Name *</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.firstName}
-                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                    placeholder="e.g. Ramesh"
-                  />
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Last Name *</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.lastName}
-                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                    placeholder="e.g. Kumar"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Phone Number</label>
-                  <input
-                    type="tel"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="10-digit mobile"
-                  />
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Gender</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.gender}
-                    onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Date of Birth</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.dob}
-                    onChange={(e) => setForm({ ...form, dob: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Email Address</label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="name@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>City / Town</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="e.g. Chennai"
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Full Address</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="Street, area, landmark"
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Blood Group</label>
-                  <select
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.bloodGroup}
-                    onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
-                  >
-                    <option value="unknown">Unknown</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Emergency Contact Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.emergencyName}
-                    onChange={(e) => setForm({ ...form, emergencyName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Emergency Contact Phone</label>
-                  <input
-                    type="tel"
-                    className="form-control"
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    value={form.emergencyPhone}
-                    onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Medical Alerts / Allergies (comma separated)</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  value={form.alerts}
-                  onChange={(e) => setForm({ ...form, alerts: e.target.value })}
-                  placeholder="e.g. Penicillin Allergy, Diabetic, Hypertension"
-                />
-              </div>
-
-              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', pt: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : editingPatient ? 'Update Patient' : 'Save Patient Record'}
-                </button>
-              </div>
-            </form>
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Title</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            >
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Ms">Ms</option>
+              <option value="Master">Master</option>
+              <option value="Dr">Dr</option>
+            </select>
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>First Name *</label>
+            <input
+              type="text"
+              required
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.firstName}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              placeholder="e.g. Ramesh"
+            />
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Last Name *</label>
+            <input
+              type="text"
+              required
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.lastName}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              placeholder="e.g. Kumar"
+            />
           </div>
         </div>
-      )}
+
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Phone Number</label>
+            <input
+              type="tel"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="10-digit mobile"
+            />
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Gender</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.gender}
+              onChange={(e) => setForm({ ...form, gender: e.target.value })}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Date of Birth</label>
+            <input
+              type="date"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.dob}
+              onChange={(e) => setForm({ ...form, dob: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Email Address</label>
+            <input
+              type="email"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="name@example.com"
+            />
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>City / Town</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="e.g. Chennai"
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '12px' }}>
+          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Full Address</label>
+          <input
+            type="text"
+            className="form-control"
+            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="Street, area, landmark"
+          />
+        </div>
+
+        <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Blood Group</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.bloodGroup}
+              onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
+            >
+              <option value="unknown">Unknown</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Emergency Contact Name</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.emergencyName}
+              onChange={(e) => setForm({ ...form, emergencyName: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Emergency Contact Phone</label>
+            <input
+              type="tel"
+              className="form-control"
+              style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={form.emergencyPhone}
+              onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '8px' }}>
+          <label className="field-label" style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Medical Alerts / Allergies (comma separated)</label>
+          <input
+            type="text"
+            className="form-control"
+            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+            value={form.alerts}
+            onChange={(e) => setForm({ ...form, alerts: e.target.value })}
+            placeholder="e.g. Penicillin Allergy, Diabetic, Hypertension"
+          />
+        </div>
+      </ReusableFormModal>
     </div>
   )
 }

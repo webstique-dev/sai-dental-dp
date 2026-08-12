@@ -10,6 +10,8 @@ import {
 import { TextField } from '../../components/ui/fields'
 import ConfirmationDialog from '../../components/common/ConfirmationDialog'
 import { SkeletonTable } from '../../components/common/skeleton'
+import { Modal } from '../../components/common/modal'
+import { useNotification } from '../../components/common/notification'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -19,6 +21,7 @@ const ROLES = [
 ]
 
 export default function UsersPage() {
+  const notify = useNotification()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -61,7 +64,9 @@ export default function UsersPage() {
       const res = await listUsers({ role: roleFilter, q: searchQuery, includeInactive: 'true' })
       setUsers(res.users || [])
     } catch (err) {
-      setError(err.message || 'Failed to load staff users')
+      const errMsg = err.message || 'Failed to load staff users'
+      setError(errMsg)
+      notify.error(errMsg)
     } finally {
       setLoading(false)
     }
@@ -74,19 +79,23 @@ export default function UsersPage() {
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!createForm.name || !createForm.email || !createForm.password) {
-      setError('Please fill in all required fields (Name, Email, Password).')
+      const msg = 'Please fill in all required fields (Name, Email, Password).'
+      setError(msg)
+      notify.warning(msg)
       return
     }
     setError('')
     setNotice('')
     try {
       await createUser(createForm)
-      setNotice(`Staff user account created for ${createForm.name}.`)
+      notify.success(`Staff user account created for ${createForm.name}.`)
       setShowCreateModal(false)
       setCreateForm({ name: '', email: '', phone: '', password: '', role: 'receptionist', specialization: '' })
       fetchUsers()
     } catch (err) {
-      setError(err.message || 'Failed to create staff user.')
+      const errMsg = err.message || 'Failed to create staff user.'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -97,11 +106,13 @@ export default function UsersPage() {
     setNotice('')
     try {
       await updateUser(editingUser.id, editForm)
-      setNotice(`Updated staff account details for ${editingUser.name}.`)
+      notify.success(`Updated staff account details for ${editingUser.name}.`)
       setEditingUser(null)
       fetchUsers()
     } catch (err) {
-      setError(err.message || 'Failed to update staff user.')
+      const errMsg = err.message || 'Failed to update staff user.'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -111,11 +122,13 @@ export default function UsersPage() {
     setNotice('')
     try {
       const res = await toggleUserActive(confirmToggleUser.id)
-      setNotice(res.message || 'User active status updated.')
+      notify.success(res.message || 'User active status updated.')
       setConfirmToggleUser(null)
       fetchUsers()
     } catch (err) {
-      setError(err.message || 'Failed to toggle account status.')
+      const errMsg = err.message || 'Failed to toggle account status.'
+      setError(errMsg)
+      notify.error(errMsg)
       setConfirmToggleUser(null)
     }
   }
@@ -127,11 +140,13 @@ export default function UsersPage() {
     setNotice('')
     try {
       await resetUserPassword(resetUser.id, newPassword)
-      setNotice(`Password reset successfully for ${resetUser.name}.`)
+      notify.success(`Password reset successfully for ${resetUser.name}.`)
       setResetUser(null)
       setNewPassword('')
     } catch (err) {
-      setError(err.message || 'Failed to reset password.')
+      const errMsg = err.message || 'Failed to reset password.'
+      setError(errMsg)
+      notify.error(errMsg)
     }
   }
 
@@ -257,94 +272,98 @@ export default function UsersPage() {
       </div>
 
       {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ background: '#fff', width: '100%', maxWidth: '500px', padding: '24px', borderRadius: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Create New Staff Account</h2>
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <TextField label="Full Name *" value={createForm.name} onChange={(v) => setCreateForm((f) => ({ ...f, name: v }))} placeholder="e.g. Dr. Priya Sharma" />
-              <TextField label="Email Address *" value={createForm.email} onChange={(v) => setCreateForm((f) => ({ ...f, email: v }))} placeholder="doctor@saidental.com" />
-              <TextField label="Phone Number" value={createForm.phone} onChange={(v) => setCreateForm((f) => ({ ...f, phone: v }))} placeholder="+91 98400 00000" />
-              <TextField label="Initial Password *" type="password" value={createForm.password} onChange={(v) => setCreateForm((f) => ({ ...f, password: v }))} placeholder="At least 6 characters" />
-              
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staff Role *</label>
-                <select
-                  className="form-control"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={createForm.role}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value }))}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {createForm.role === 'doctor' && (
-                <TextField label="Specialization (for Doctors)" value={createForm.specialization} onChange={(v) => setCreateForm((f) => ({ ...f, specialization: v }))} placeholder="e.g. Endodontist / Orthodontist" />
-              )}
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Account</button>
-              </div>
-            </form>
+      <Modal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Staff Account"
+        maxWidth="500px"
+      >
+        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <TextField label="Full Name *" value={createForm.name} onChange={(v) => setCreateForm((f) => ({ ...f, name: v }))} placeholder="e.g. Dr. Priya Sharma" />
+          <TextField label="Email Address *" value={createForm.email} onChange={(v) => setCreateForm((f) => ({ ...f, email: v }))} placeholder="doctor@saidental.com" />
+          <TextField label="Phone Number" value={createForm.phone} onChange={(v) => setCreateForm((f) => ({ ...f, phone: v }))} placeholder="+91 98400 00000" />
+          <TextField label="Initial Password *" type="password" value={createForm.password} onChange={(v) => setCreateForm((f) => ({ ...f, password: v }))} placeholder="At least 6 characters" />
+          
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staff Role *</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', marginTop: '4px' }}
+              value={createForm.role}
+              onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value }))}
+            >
+              {ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          {createForm.role === 'doctor' && (
+            <TextField label="Specialization (for Doctors)" value={createForm.specialization} onChange={(v) => setCreateForm((f) => ({ ...f, specialization: v }))} placeholder="e.g. Endodontist / Orthodontist" />
+          )}
+
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Create Account</button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit User Modal */}
-      {editingUser && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ background: '#fff', width: '100%', maxWidth: '500px', padding: '24px', borderRadius: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Edit Staff Account: {editingUser.name}</h2>
-            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <TextField label="Full Name *" value={editForm.name} onChange={(v) => setEditForm((f) => ({ ...f, name: v }))} />
-              <TextField label="Phone Number" value={editForm.phone} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} />
-              
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staff Role *</label>
-                <select
-                  className="form-control"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={editForm.role}
-                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+      <Modal
+        open={Boolean(editingUser)}
+        onClose={() => setEditingUser(null)}
+        title={editingUser ? `Edit Staff Account: ${editingUser.name}` : ''}
+        maxWidth="500px"
+      >
+        {editingUser && (
+          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <TextField label="Full Name *" value={editForm.name} onChange={(v) => setEditForm((f) => ({ ...f, name: v }))} />
+            <TextField label="Phone Number" value={editForm.phone} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} />
+            
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Staff Role *</label>
+              <select
+                className="form-control"
+                style={{ width: '100%', marginTop: '4px' }}
+                value={editForm.role}
+                onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
 
-              {editForm.role === 'doctor' && (
-                <TextField label="Specialization" value={editForm.specialization} onChange={(v) => setEditForm((f) => ({ ...f, specialization: v }))} />
-              )}
+            {editForm.role === 'doctor' && (
+              <TextField label="Specialization" value={editForm.specialization} onChange={(v) => setEditForm((f) => ({ ...f, specialization: v }))} />
+            )}
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save Changes</button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Reset Password Modal */}
-      {resetUser && (
-        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ background: '#fff', width: '100%', maxWidth: '400px', padding: '24px', borderRadius: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Reset Password: {resetUser.name}</h2>
-            <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <TextField label="New Password *" type="password" value={newPassword} onChange={setNewPassword} placeholder="At least 6 characters" />
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setResetUser(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Reset Password</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={Boolean(resetUser)}
+        onClose={() => setResetUser(null)}
+        title={resetUser ? `Reset Password: ${resetUser.name}` : ''}
+        maxWidth="400px"
+      >
+        {resetUser && (
+          <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <TextField label="New Password *" type="password" value={newPassword} onChange={setNewPassword} placeholder="At least 6 characters" />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setResetUser(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Reset Password</button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Toggle Active Confirmation Dialog */}
       {confirmToggleUser && (
